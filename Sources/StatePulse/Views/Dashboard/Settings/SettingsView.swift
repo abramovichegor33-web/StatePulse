@@ -8,6 +8,7 @@ struct SettingsView: View {
     @ObservedObject private var notificationService = NotificationService.shared
     @ObservedObject private var passiveTracker = PassiveTrackerService.shared
     @ObservedObject private var launchAtLogin = LaunchAtLoginService.shared
+    @ObservedObject private var cloudSync = CloudSyncService.shared
 
     @State private var newReminderHour: Int = 12
     @State private var newReminderMinute: Int = 0
@@ -336,7 +337,68 @@ struct SettingsView: View {
                     }
                 }
 
-                // 5. Data Management & Backup
+                // 5. Cloud Sync (Supabase)
+                settingsSection(title: "Облачная синхронизация (Supabase)", icon: "cloud.fill") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .center) {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(cloudSync.isConnected ? Color.green : Color.orange)
+                                    .frame(width: 8, height: 8)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Облачная база активна (Франкфурт)")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(theme.textPrimary)
+
+                                    if let lastSync = cloudSync.lastSyncTime {
+                                        Text("Последняя синхронизация: \(formatSyncTime(lastSync))")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(theme.textSecondary)
+                                    } else {
+                                        Text(cloudSync.statusMessage)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(theme.textSecondary)
+                                    }
+                                }
+                            }
+
+                            Spacer()
+
+                            Button(action: {
+                                Task {
+                                    await cloudSync.syncAll()
+                                    onDataChanged()
+                                    showStatus("Данные синхронизированы с облаком!")
+                                }
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .rotationEffect(.degrees(cloudSync.isSyncing ? 360 : 0))
+                                        .animation(cloudSync.isSyncing ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: cloudSync.isSyncing)
+                                    Text(cloudSync.isSyncing ? "Синхронизация..." : "Синхронизировать сейчас")
+                                }
+                                .font(.system(size: 12, weight: .medium))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(theme.cardBackground)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(theme.cardBorder, lineWidth: 1)
+                                )
+                                .foregroundColor(theme.textPrimary)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(cloudSync.isSyncing)
+                        }
+
+                        Text("Автоматическая фоновая синхронизация между устройствами (Mac, Android, Windows). Работает по принципу Offline-First: все записи мгновенно сохраняются локально, а при наличии интернета тихо отправляются в облако.")
+                            .font(.system(size: 11))
+                            .foregroundColor(theme.textSecondary)
+                    }
+                }
+
+                // 6. Data Management & Backup
                 settingsSection(title: "Данные и резервное копирование", icon: "externaldrive.fill") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Все ваши чек-ины и контекст хранятся исключительно на этом Mac в защищенной локальной базе SQLite.")
@@ -519,6 +581,13 @@ struct SettingsView: View {
                 )
             )
         }
+    }
+
+    private func formatSyncTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter.string(from: date)
     }
 
     private func showStatus(_ msg: String) {

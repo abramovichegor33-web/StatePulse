@@ -93,7 +93,7 @@ final class DatabaseManager {
     }
 
     // MARK: - CheckIns CRUD
-    func saveCheckIn(_ record: CheckInRecord) {
+    func saveCheckInLocally(_ record: CheckInRecord) {
         queue.sync {
             let sql = """
             INSERT OR REPLACE INTO check_ins (id, timestamp, body_energy, mental_resource, focus, tags, note, screen_time_seconds, metric_scores)
@@ -122,8 +122,13 @@ final class DatabaseManager {
                 sqlite3_finalize(statement)
             }
         }
+    }
+
+    func saveCheckIn(_ record: CheckInRecord) {
+        saveCheckInLocally(record)
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .databaseDidChange, object: nil)
+            CloudSyncService.shared.pushCheckIn(record)
         }
     }
 
@@ -139,6 +144,7 @@ final class DatabaseManager {
         }
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .databaseDidChange, object: nil)
+            CloudSyncService.shared.deleteCheckIn(id: id)
         }
     }
 
