@@ -2,6 +2,10 @@
 
 > Простой, нативный трекер личного состояния и энергии для macOS.
 
+[![Download DMG](https://img.shields.io/badge/Скачать-StatePulse%20v1.0.0%20(DMG)-black?style=for-the-badge&logo=apple)](https://github.com/abramovichegor33-web/StatePulse/releases/download/v1.0.0/StatePulse-v1.0.0.dmg)
+[![macOS 14+](https://img.shields.io/badge/macOS-14.0%2B-blue?style=flat-square)](https://github.com/abramovichegor33-web/StatePulse/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+
 Искал для себя удобный инструмент, чтобы в течение дня быстро чекать самочувствие — уровень физической энергии, ясность ума и моральный ресурс. Большинство существующих приложений либо перегружены сложными анкетами и платными подписками, либо написаны на тяжелых веб-оболочках (Electron) и впустую тратят батарею ноутбука, либо отправляют личные заметки на сторонние серверы.
 
 В итоге решил сделать свой вариант — максимально легкий, минималистичный, живущий прямо в строке меню (Menu Bar) и эстетически вдохновленный Things 3 и Linear. Делал под свои задачи, но выкладываю в открытый доступ: возможно, кому-то тоже окажется полезным.
