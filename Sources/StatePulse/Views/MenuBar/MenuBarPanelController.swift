@@ -73,6 +73,10 @@ final class MenuBarPanelController: NSObject, ObservableObject, NSWindowDelegate
         self.onOpenDashboardHandler = onOpenDashboard
         self.isHiding = false
 
+        Task {
+            await CloudSyncService.shared.syncAll()
+        }
+
         if panel == nil {
             setupPanel()
         }

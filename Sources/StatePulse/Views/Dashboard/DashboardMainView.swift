@@ -176,6 +176,14 @@ struct DashboardMainView: View {
         .preferredColorScheme(themeManager.colorScheme)
         .onAppear {
             reloadData()
+            Task {
+                await CloudSyncService.shared.syncAll()
+            }
+        }
+        .onChange(of: selectedTab) { _, _ in
+            Task {
+                await CloudSyncService.shared.syncAll()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .databaseDidChange)) { _ in
             reloadData()

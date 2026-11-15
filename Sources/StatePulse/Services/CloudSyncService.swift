@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Combine
 
 private struct SupabaseCheckInDTO: Codable {
@@ -37,9 +38,43 @@ final class CloudSyncService: ObservableObject {
         return f
     }()
 
+    private var syncTimer: Timer?
+
     private init() {
         Task {
             await syncAll()
+        }
+        setupAutoSync()
+    }
+
+    private func setupAutoSync() {
+        // Periodic background auto-sync every 15 seconds
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.syncAll()
+            }
+        }
+
+        // Auto sync when app becomes active
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.syncAll()
+            }
+        }
+
+        // Auto sync when Mac wakes from sleep
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.syncAll()
+            }
         }
     }
 

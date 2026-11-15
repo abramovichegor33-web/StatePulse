@@ -38,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupServices() {
+        // Start cloud synchronization with Supabase
+        _ = CloudSyncService.shared
+
         // Start passive sleep/wake tracking
         _ = PassiveTrackerService.shared
 
