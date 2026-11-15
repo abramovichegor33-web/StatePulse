@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>StatePulse</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta name="theme-color" content="#141414">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            appBg: '#141414',
+            appCard: '#1E1E1E',
+            appBorder: '#2C2C2E',
+            appText: '#F2F2F7',
+            appSubtext: '#8E8E93',
+            bodyColor: '#E06C75',
+            mindColor: '#61AFEF',
+            focusColor: '#98C379',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Mobile-first tweaks */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    input, textarea {
+      user-select: text;
+    }
+    .safe-bottom {
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    .safe-top {
+      padding-top: max(12px, env(safe-area-inset-top));
+    }
+    .custom-scroll::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-appBg text-appText min-h-screen flex flex-col justify-between overflow-x-hidden transition-colors duration-200">
+
+  <!-- Top App Bar -->
+  <header class="safe-top px-4 pb-2 border-b border-appBorder flex items-center justify-between bg-appBg/90 backdrop-blur sticky top-0 z-30">
+    <div class="flex items-center space-x-2">
+      <div class="w-2.5 h-2.5 rounded-full bg-bodyColor"></div>
+      <h1 class="text-base font-bold tracking-tight">StatePulse</h1>
+      <span id="streakBadge" class="hidden text-xs bg-orange-500/15 text-orange-400 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+        🔥 <span id="streakCount">0</span> дн
+      </span>
+    </div>
+
+    <!-- Sync status & theme toggle -->
+    <div class="flex items-center space-x-2">
+      <button id="syncBtn" onclick="syncWithCloud()" class="text-xs text-appSubtext flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-appCard border border-appBorder active:scale-95 transition">
+        <span id="syncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        <span id="syncText">В сети</span>
+      </button>
+
+      <button onclick="toggleTheme()" class="p-1.5 rounded-full bg-appCard border border-appBorder text-appSubtext active:scale-95 transition">
+        <svg id="themeIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 px-4 py-3 pb-24 overflow-y-auto max-w-md mx-auto w-full">
+
+    <!-- TAB 1: QUICK CHECK-IN -->
+    <section id="tab-checkin" class="space-y-4">
+      <!-- Date & Phase Selector -->
+      <div>
+        <div class="text-xs text-appSubtext font-medium mb-2" id="currentDateStr">Воскресенье, 15 ноября</div>
+        <div class="grid grid-cols-4 gap-1.5" id="phaseButtons">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Segmented Sliders -->
+      <div class="space-y-3 pt-1">
+        <!-- Body Energy -->
+        <div class="bg-appCard border border-appBorder rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-sm">❤️</span>
+              <span class="text-xs font-semibold">Физическая энергия</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span id="bodyLabel" class="text-xs text-appSubtext font-medium">Норма</span>
+              <span id="bodyVal" class="text-xs font-bold text-bodyColor w-4 text-right">7</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-10 gap-1" id="slider-body"></div>
+        </div>
+
+        <!-- Mental Resource -->
+        <div class="bg-appCard border border-appBorder rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-sm">🧠</span>
+              <span class="text-xs font-semibold">Моральный ресурс</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span id="mindLabel" class="text-xs text-appSubtext font-medium">Норма</span>
+              <span id="mindVal" class="text-xs font-bold text-mindColor w-4 text-right">7</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-10 gap-1" id="slider-mind"></div>
+        </div>
+
+        <!-- Focus & Clarity -->
+        <div class="bg-appCard border border-appBorder rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-sm">🎯</span>
+              <span class="text-xs font-semibold">Фокус и ясность</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span id="focusLabel" class="text-xs text-appSubtext font-medium">Норма</span>
+              <span id="focusVal" class="text-xs font-bold text-focusColor w-4 text-right">7</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-10 gap-1" id="slider-focus"></div>
+        </div>
+      </div>
+
+      <!-- Context Tags -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold text-appSubtext tracking-wider uppercase">КОНТЕКСТ ДНЯ</span>
+          <button onclick="promptCustomTag()" class="text-xs text-appSubtext hover:text-appText flex items-center gap-1">+ Свой тег</button>
+        </div>
+        <div class="flex flex-wrap gap-1.5" id="tagChips"></div>
+      </div>
+
+      <!-- Note Field -->
+      <div class="space-y-1.5">
+        <span class="text-[10px] font-bold text-appSubtext tracking-wider uppercase">ЗАМЕТКА</span>
+        <input type="text" id="noteInput" placeholder="Мысли, ключевое событие или инсайт..." class="w-full bg-appCard border border-appBorder rounded-lg px-3 py-2 text-xs text-appText placeholder-appSubtext focus:outline-none focus:border-appSubtext transition">
+      </div>
+
+      <!-- Save Button -->
+      <button id="saveBtn" onclick="saveCheckIn()" class="w-full py-3 bg-appText text-appBg font-bold text-sm rounded-xl active:scale-[0.98] transition flex items-center justify-center gap-2 shadow-lg">
+        <span>Сохранить чек-ин</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+      </button>
+    </section>
+
+    <!-- TAB 2: INTRADAY RHYTHM -->
+    <section id="tab-rhythm" class="hidden space-y-4">
+      <div>
+        <h2 class="text-base font-bold">Ритм фаз суток</h2>
+        <p class="text-xs text-appSubtext">Сводка по частям дня за сегодня</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2" id="rhythmPhaseCards"></div>
+
+      <div class="pt-2">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-bold">Хроника срезов за день</h3>
+          <span class="text-xs text-appSubtext" id="todaySliceCount">0 записей</span>
+        </div>
+        <div class="space-y-2" id="todaySlicesList"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: OVERVIEW & HEATMAP -->
+    <section id="tab-overview" class="hidden space-y-4">
+      <div>
+        <h2 class="text-base font-bold">Обзор и статистика</h2>
+        <p class="text-xs text-appSubtext">Календарная тепловая карта и средние значения</p>
+      </div>
+
+      <!-- Summary metrics -->
+      <div class="grid grid-cols-3 gap-2" id="overviewMetrics"></div>
+
+      <!-- Heatmap Container -->
+      <div class="bg-appCard border border-appBorder rounded-xl p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold">Тепловая карта (последние недели)</span>
+          <span class="text-[10px] text-appSubtext">Кликните на день</span>
+        </div>
+        <div class="overflow-x-auto pb-1 custom-scroll" id="heatmapGrid"></div>
+
+        <!-- Selected Day Details Card in Overview -->
+        <div id="overviewDayCard" class="mt-2 p-2.5 bg-appBg/60 border border-appBorder rounded-lg space-y-2">
+          <div class="text-xs font-bold text-appText" id="overviewDayTitle">Выберите день</div>
+          <div class="space-y-1" id="overviewDaySlices"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: HISTORY -->
+    <section id="tab-history" class="hidden space-y-3">
+      <div>
+        <h2 class="text-base font-bold">История чек-инов</h2>
+        <p class="text-xs text-appSubtext">Все сделанные срезы на Mac и телефоне</p>
+      </div>
+
+      <input type="text" id="historySearch" oninput="renderHistory()" placeholder="Поиск по заметкам и тегам..." class="w-full bg-appCard border border-appBorder rounded-lg px-3 py-2 text-xs text-appText placeholder-appSubtext focus:outline-none focus:border-appSubtext transition">
+
+      <div class="space-y-2" id="historyList"></div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="safe-bottom fixed bottom-0 left-0 right-0 bg-appBg/95 backdrop-blur border-t border-appBorder z-30">
+    <div class="max-w-md mx-auto grid grid-cols-4 px-2 py-1">
+      <button onclick="switchTab('checkin')" id="nav-checkin" class="nav-btn flex flex-col items-center py-1 text-appText">
+        <span class="text-base">⚡</span>
+        <span class="text-[10px] font-semibold mt-0.5">Чек-ин</span>
+      </button>
+
+      <button onclick="switchTab('rhythm')" id="nav-rhythm" class="nav-btn flex flex-col items-center py-1 text-appSubtext">
+        <span class="text-base">☀️</span>
+        <span class="text-[10px] font-semibold mt-0.5">Ритм</span>
+      </button>
+
+      <button onclick="switchTab('overview')" id="nav-overview" class="nav-btn flex flex-col items-center py-1 text-appSubtext">
+        <span class="text-base">📊</span>
+        <span class="text-[10px] font-semibold mt-0.5">Обзор</span>
+      </button>
+
+      <button onclick="switchTab('history')" id="nav-history" class="nav-btn flex flex-col items-center py-1 text-appSubtext">
+        <span class="text-base">🕒</span>
+        <span class="text-[10px] font-semibold mt-0.5">История</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Core Mobile Application Script -->
+  <script>
+    // Supabase Config
+    const SUPABASE_URL = "https://ztjxxmyqrbdclzexluxz.supabase.co/rest/v1";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0anh4bXlxcmJkY2x6ZXhsdXh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTgzNTgsImV4cCI6MjExMDMzNDM1OH0.0rLiWUrtUCR5zE2tIDswJBVfQ_pA3c2S2xqmubYavcg";
+
+    // Phases
+    const PHASES = [
+      { id: 'morning', title: 'Утро', icon: '🌅', color: '#F39C12', hours: [5, 12] },
+      { id: 'afternoon', title: 'День', icon: '☀️', color: '#3498DB', hours: [12, 17] },
+      { id: 'evening', title: 'Вечер', icon: '🌆', color: '#E74C3C', hours: [17, 23] },
+      { id: 'night', title: 'Ночь', icon: '🌙', color: '#9B59B6', hours: [23, 5] }
+    ];
+
+    const DEFAULT_TAGS = ['Недосып', 'Тренировка', 'Много работы', 'Стресс', 'Результат', 'Залип в экран', 'Отдых', 'Играю'];
+
+    // State
+    let currentPhase = getCurrentPhaseId();
+    let scores = { body: 7, mind: 7, focus: 7 };
+    let selectedTags = new Set();
+    let records = [];
+    let customTags = JSON.parse(localStorage.getItem('sp_custom_tags') || '[]');
+
+    function getCurrentPhaseId() {
+      const h = new Date().getHours();
+      if (h >= 5 && h < 12) return 'morning';
+      if (h >= 12 && h < 17) return 'afternoon';
+      if (h >= 17 && h < 23) return 'evening';
+      return 'night';
+    }
+
+    function init() {
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      }
+
+      loadLocalRecords();
+      renderPhaseButtons();
+      renderSliders();
+      renderTags();
+      renderCurrentDate();
+      syncWithCloud();
+    }
+
+    function renderCurrentDate() {
+      const options = { weekday: 'long', day: 'numeric', month: 'long' };
+      const str = new Date().toLocaleDateString('ru-RU', options);
+      document.getElementById('currentDateStr').textContent = str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function renderPhaseButtons() {
+      const container = document.getElementById('phaseButtons');
+      const todayRecords = getTodayRecords();
+      container.innerHTML = PHASES.map(p => {
+        const isSelected = p.id === currentPhase;
+        const count = todayRecords.filter(r => getRecordPhase(r.timestamp) === p.id).length;
+        return `
+          <button onclick="setPhase('${p.id}')" class="flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-xs font-medium transition active:scale-95 ${
+            isSelected 
+              ? 'bg-appText text-appBg border-appText font-bold shadow' 
+              : 'bg-appCard text-appText border-appBorder'
+          }">
+            <span>${p.icon}</span>
+            <span>${p.title}</span>
+            ${count > 0 ? `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-appBg' : 'bg-emerald-400'}"></span>` : ''}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function setPhase(id) {
+      currentPhase = id;
+      renderPhaseButtons();
+    }
+
+    function getRecordPhase(timestampStr) {
+      const d = new Date(timestampStr);
+      const h = d.getHours();
+      if (h >= 5 && h < 12) return 'morning';
+      if (h >= 12 && h < 17) return 'afternoon';
+      if (h >= 17 && h < 23) return 'evening';
+      return 'night';
+    }
+
+    function renderSliders() {
+      ['body', 'mind', 'focus'].forEach(m => {
+        const container = document.getElementById(`slider-${m}`);
+        const val = scores[m];
+        container.innerHTML = Array.from({ length: 10 }, (_, i) => i + 1).map(n => {
+          const isActive = n <= val;
+          const isSelected = n === val;
+          let colorBg = 'bg-appBorder/50';
+          if (isActive) {
+            if (m === 'body') colorBg = 'bg-bodyColor';
+            if (m === 'mind') colorBg = 'bg-mindColor';
+            if (m === 'focus') colorBg = 'bg-focusColor';
+          }
+          return `
+            <div onclick="setScore('${m}', ${n})" class="h-6 rounded cursor-pointer transition ${colorBg} flex items-center justify-center active:scale-95">
+              ${isSelected ? `<span class="text-[9px] font-bold text-white drop-shadow">${n}</span>` : ''}
+            </div>
+          `;
+        }).join('');
+        document.getElementById(`${m}Val`).textContent = val;
+        document.getElementById(`${m}Label`).textContent = getScoreDescription(val);
+      });
+    }
+
+    function getScoreDescription(score) {
+      if (score <= 2) return 'Истощение';
+      if (score <= 4) return 'Усталость';
+      if (score <= 6) return 'Норма';
+      if (score <= 8) return 'Бодрость';
+      return 'Пик ресурса';
+    }
+
+    function setScore(metric, val) {
+      scores[metric] = val;
+      if (navigator.vibrate) navigator.vibrate(15);
+      renderSliders();
+    }
+
+    function renderTags() {
+      const allTags = [...new Set([...DEFAULT_TAGS, ...customTags])];
+      const container = document.getElementById('tagChips');
+      container.innerHTML = allTags.map(tag => {
+        const isSelected = selectedTags.has(tag);
+        return `
+          <button onclick="toggleTag('${tag}')" class="px-2.5 py-1 rounded-full text-xs transition active:scale-95 border ${
+            isSelected 
+              ? 'bg-appText text-appBg font-bold border-appText' 
+              : 'bg-appCard text-appText border-appBorder hover:border-appSubtext'
+          }">
+            ${tag}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function toggleTag(tag) {
+      if (selectedTags.has(tag)) selectedTags.delete(tag);
+      else selectedTags.add(tag);
+      renderTags();
+    }
+
+    function promptCustomTag() {
+      const name = prompt('Введите название нового тега:');
+      if (name && name.trim()) {
+        const trimmed = name.trim();
+        customTags.push(trimmed);
+        localStorage.setItem('sp_custom_tags', JSON.stringify(customTags));
+        selectedTags.add(trimmed);
+        renderTags();
+      }
+    }
+
+    // Save check-in
+    async function saveCheckIn() {
+      const note = document.getElementById('noteInput').value.trim();
+      const id = crypto.randomUUID();
+      const now = new Date();
+
+      const record = {
+        id: id,
+        timestamp: now.toISOString(),
+        body_energy: scores.body,
+        mental_resource: scores.mind,
+        focus: scores.focus,
+        tags: Array.from(selectedTags),
+        note: note,
+        screen_time_seconds: 0,
+        metric_scores: { body: scores.body, mind: scores.mind, focus: scores.focus }
+      };
+
+      // 1. Save locally
+      records.unshift(record);
+      saveLocalRecords();
+
+      // Feedback animation
+      if (navigator.vibrate) navigator.vibrate([25, 50, 25]);
+      const btn = document.getElementById('saveBtn');
+      btn.innerHTML = `<span>✓ Сохранено!</span>`;
+      btn.classList.add('bg-emerald-500', 'text-white');
+
+      document.getElementById('noteInput').value = '';
+
+      setTimeout(() => {
+        btn.innerHTML = `<span>Сохранить чек-ин</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>`;
+        btn.classList.remove('bg-emerald-500', 'text-white');
+      }, 1500);
+
+      renderPhaseButtons();
+
+      // 2. Push to Supabase
+      try {
+        await fetch(`${SUPABASE_URL}/check_ins`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify([record])
+        });
+      } catch (e) {
+        console.log('Offline: saved locally, will sync later');
+      }
+    }
+
+    // Cloud Sync
+    async function syncWithCloud() {
+      const dot = document.getElementById('syncDot');
+      const text = document.getElementById('syncText');
+      text.textContent = 'Синхр...';
+      dot.className = 'w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/check_ins?select=*&order=timestamp.desc`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+
+        if (!res.ok) throw new Error();
+        const remote = await res.json();
+
+        // Merge remote and local by ID
+        const localMap = new Map(records.map(r => [r.id.toLowerCase(), r]));
+        remote.forEach(r => {
+          localMap.set(r.id.toLowerCase(), r);
+        });
+
+        records = Array.from(localMap.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        saveLocalRecords();
+
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+        text.textContent = 'В сети';
+
+        updateStreak();
+        renderPhaseButtons();
+        if (currentTab === 'rhythm') renderRhythm();
+        if (currentTab === 'overview') renderOverview();
+        if (currentTab === 'history') renderHistory();
+      } catch (err) {
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-orange-400';
+        text.textContent = 'Офлайн';
+      }
+    }
+
+    function loadLocalRecords() {
+      records = JSON.parse(localStorage.getItem('sp_records') || '[]');
+      updateStreak();
+    }
+
+    function saveLocalRecords() {
+      localStorage.setItem('sp_records', JSON.stringify(records));
+      updateStreak();
+    }
+
+    function getTodayRecords() {
+      const todayStr = new Date().toISOString().split('T')[0];
+      return records.filter(r => r.timestamp.startsWith(todayStr));
+    }
+
+    function updateStreak() {
+      const days = new Set(records.map(r => r.timestamp.split('T')[0]));
+      let streak = 0;
+      let d = new Date();
+      while (true) {
+        const str = d.toISOString().split('T')[0];
+        if (days.has(str)) {
+          streak++;
+          d.setDate(d.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+      const badge = document.getElementById('streakBadge');
+      if (streak > 0) {
+        badge.classList.remove('hidden');
+        document.getElementById('streakCount').textContent = streak;
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    // Tabs
+    let currentTab = 'checkin';
+    function switchTab(tabId) {
+      currentTab = tabId;
+      ['checkin', 'rhythm', 'overview', 'history'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`nav-${t}`);
+        btn.classList.remove('text-appText');
+        btn.classList.add('text-appSubtext');
+      });
+
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`nav-${tabId}`);
+      activeBtn.classList.remove('text-appSubtext');
+      activeBtn.classList.add('text-appText');
+
+      if (tabId === 'rhythm') renderRhythm();
+      if (tabId === 'overview') renderOverview();
+      if (tabId === 'history') renderHistory();
+    }
+
+    // Render Rhythm
+    function renderRhythm() {
+      const todayRecords = getTodayRecords();
+      document.getElementById('todaySliceCount').textContent = `${todayRecords.length} записей`;
+
+      // Phase cards
+      const phaseCardsContainer = document.getElementById('rhythmPhaseCards');
+      phaseCardsContainer.innerHTML = PHASES.map(p => {
+        const inPhase = todayRecords.filter(r => getRecordPhase(r.timestamp) === p.id);
+        const avg = inPhase.length > 0
+          ? (inPhase.reduce((acc, r) => acc + ((r.body_energy + r.mental_resource + r.focus) / 3), 0) / inPhase.length).toFixed(1)
+          : '—';
+        return `
+          <div class="bg-appCard border border-appBorder rounded-xl p-3 space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold">${p.icon} ${p.title}</span>
+              <span class="text-[10px] text-appSubtext">${inPhase.length} чек-ин</span>
+            </div>
+            <div class="text-lg font-bold" style="color: ${p.color}">${avg} <span class="text-[10px] text-appSubtext">/ 10</span></div>
+          </div>
+        `;
+      }).join('');
+
+      // Today's slices list
+      const slicesContainer = document.getElementById('todaySlicesList');
+      if (todayRecords.length === 0) {
+        slicesContainer.innerHTML = `<div class="p-6 text-center text-xs text-appSubtext">Сегодня записей еще не было</div>`;
+      } else {
+        slicesContainer.innerHTML = todayRecords.map(r => renderSliceRow(r)).join('');
+      }
+    }
+
+    function renderSliceRow(r) {
+      const time = new Date(r.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      const p = PHASES.find(ph => ph.id === getRecordPhase(r.timestamp)) || PHASES[0];
+      return `
+        <div class="bg-appCard border border-appBorder rounded-xl p-3 flex items-center justify-between gap-2">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-mono font-bold">${time}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-appBorder/50 font-medium">${p.icon} ${p.title}</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <span class="px-1.5 py-0.5 rounded bg-bodyColor/20 text-bodyColor font-bold">Ф ${r.body_energy}</span>
+              <span class="px-1.5 py-0.5 rounded bg-mindColor/20 text-mindColor font-bold">М ${r.mental_resource}</span>
+              <span class="px-1.5 py-0.5 rounded bg-focusColor/20 text-focusColor font-bold">Ф ${r.focus}</span>
+            </div>
+            ${r.tags && r.tags.length > 0 ? `<div class="flex flex-wrap gap-1">${r.tags.map(t => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-appBorder text-appText">${t}</span>`).join('')}</div>` : ''}
+            ${r.note ? `<p class="text-xs text-appSubtext italic">"${r.note}"</p>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Overview & Heatmap
+    function renderOverview() {
+      // 1. Metrics summary
+      const mContainer = document.getElementById('overviewMetrics');
+      if (records.length === 0) {
+        mContainer.innerHTML = '';
+      } else {
+        const avgBody = (records.reduce((a, r) => a + r.body_energy, 0) / records.length).toFixed(1);
+        const avgMind = (records.reduce((a, r) => a + r.mental_resource, 0) / records.length).toFixed(1);
+        const avgFocus = (records.reduce((a, r) => a + r.focus, 0) / records.length).toFixed(1);
+
+        mContainer.innerHTML = `
+          <div class="bg-appCard border border-appBorder rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-appSubtext font-bold">ТЕЛО</div>
+            <div class="text-base font-bold text-bodyColor">${avgBody}</div>
+          </div>
+          <div class="bg-appCard border border-appBorder rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-appSubtext font-bold">МОРАЛЬ</div>
+            <div class="text-base font-bold text-mindColor">${avgMind}</div>
+          </div>
+          <div class="bg-appCard border border-appBorder rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-appSubtext font-bold">ФОКУС</div>
+            <div class="text-base font-bold text-focusColor">${avgFocus}</div>
+          </div>
+        `;
+      }
+
+      // 2. Heatmap grid (last 16 weeks)
+      const grid = document.getElementById('heatmapGrid');
+      const weeksCount = 16;
+      const today = new Date();
+      let daysMap = new Map();
+      records.forEach(r => {
+        const d = r.timestamp.split('T')[0];
+        if (!daysMap.has(d)) daysMap.set(d, []);
+        daysMap.get(d).push(r);
+      });
+
+      let cols = [];
+      for (let w = weeksCount - 1; w >= 0; w--) {
+        let colDays = [];
+        for (let d = 0; d < 7; d++) {
+          const target = new Date();
+          target.setDate(today.getDate() - (w * 7 + (6 - d)));
+          const key = target.toISOString().split('T')[0];
+          const dayRecords = daysMap.get(key) || [];
+          const count = dayRecords.length;
+          let levelClass = 'bg-appBorder/30';
+          if (count > 0) {
+            const avg = dayRecords.reduce((acc, r) => acc + (r.body_energy + r.mental_resource + r.focus) / 3, 0) / count;
+            if (avg < 3) levelClass = 'bg-emerald-950 border border-emerald-900';
+            else if (avg < 5) levelClass = 'bg-emerald-800';
+            else if (avg < 7.5) levelClass = 'bg-emerald-600';
+            else levelClass = 'bg-emerald-400';
+          }
+          colDays.push(`
+            <div onclick="selectHeatmapDay('${key}')" class="w-3.5 h-3.5 rounded-sm ${levelClass} cursor-pointer active:scale-90 transition"></div>
+          `);
+        }
+        cols.push(`<div class="flex flex-col gap-1">${colDays.join('')}</div>`);
+      }
+      grid.innerHTML = `<div class="flex gap-1">${cols.join('')}</div>`;
+
+      // Select today by default
+      const todayKey = new Date().toISOString().split('T')[0];
+      selectHeatmapDay(todayKey);
+    }
+
+    function selectHeatmapDay(dateStr) {
+      const dayRecords = records.filter(r => r.timestamp.startsWith(dateStr));
+      const title = document.getElementById('overviewDayTitle');
+      const list = document.getElementById('overviewDaySlices');
+
+      const dateObj = new Date(dateStr);
+      const isToday = dateStr === new Date().toISOString().split('T')[0];
+      title.textContent = (isToday ? 'Сегодня, ' : '') + dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + ` (${dayRecords.length} чек-ин)`;
+
+      if (dayRecords.length === 0) {
+        list.innerHTML = `<div class="text-[11px] text-appSubtext">Нет записей в этот день</div>`;
+      } else {
+        list.innerHTML = dayRecords.map(r => renderSliceRow(r)).join('');
+      }
+    }
+
+    // Render History
+    function renderHistory() {
+      const q = document.getElementById('historySearch')?.value.toLowerCase() || '';
+      const list = document.getElementById('historyList');
+
+      const filtered = records.filter(r => {
+        if (!q) return true;
+        const matchNote = r.note && r.note.toLowerCase().includes(q);
+        const matchTag = r.tags && r.tags.some(t => t.toLowerCase().includes(q));
+        return matchNote || matchTag;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="p-8 text-center text-xs text-appSubtext">Записей не найдено</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(r => `
+        <div class="relative group">
+          ${renderSliceRow(r)}
+          <button onclick="deleteRecord('${r.id}')" class="absolute top-2 right-2 text-appSubtext hover:text-red-400 p-1 text-xs">🗑</button>
+        </div>
+      `).join('');
+    }
+
+    async function deleteRecord(id) {
+      if (!confirm('Удалить эту запись?')) return;
+      records = records.filter(r => r.id !== id);
+      saveLocalRecords();
+      renderHistory();
+      renderPhaseButtons();
+
+      try {
+        await fetch(`${SUPABASE_URL}/check_ins?id=eq.${id.toLowerCase()}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+      } catch (e) {}
+    }
+
+    // Dark/Light Theme
+    function toggleTheme() {
+      const html = document.documentElement;
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        localStorage.setItem('sp_theme', 'light');
+      } else {
+        html.classList.add('dark');
+        localStorage.setItem('sp_theme', 'dark');
+      }
+    }
+
+    // Restore saved theme
+    if (localStorage.getItem('sp_theme') === 'light') {
+      document.documentElement.classList.remove('dark');
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
