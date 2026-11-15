@@ -3,6 +3,7 @@
 > Простой, нативный трекер личного состояния и энергии для macOS.
 
 [![Download DMG](https://img.shields.io/badge/Скачать-StatePulse%20v1.0.0%20(DMG)-black?style=for-the-badge&logo=apple)](https://github.com/abramovichegor33-web/StatePulse/releases/download/v1.0.0/StatePulse-v1.0.0.dmg)
+[![Mobile App](https://img.shields.io/badge/Открыть-Мобильное%20приложение%20(Android%20%2F%20iOS)-emerald?style=for-the-badge&logo=android)](https://abramovichegor33-web.github.io/StatePulse/)
 [![macOS 14+](https://img.shields.io/badge/macOS-14.0%2B-blue?style=flat-square)](https://github.com/abramovichegor33-web/StatePulse/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
