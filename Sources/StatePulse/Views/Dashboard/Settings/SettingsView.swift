@@ -9,12 +9,15 @@ struct SettingsView: View {
     @ObservedObject private var passiveTracker = PassiveTrackerService.shared
     @ObservedObject private var launchAtLogin = LaunchAtLoginService.shared
     @ObservedObject private var cloudSync = CloudSyncService.shared
+    @ObservedObject private var hotkeyService = HotkeyService.shared
 
     @State private var newReminderHour: Int = 12
     @State private var newReminderMinute: Int = 0
     @State private var showClearConfirmAlert: Bool = false
     @State private var statusMessage: String? = nil
     @State private var showQRCodeSheet: Bool = false
+    @State private var isRecordingHotkey: Bool = false
+    @State private var recordingMonitor: Any? = nil
 
     @State private var editingMetric: MetricDefinition? = nil
     @State private var isAddingNewMetric: Bool = false
@@ -313,26 +316,64 @@ struct SettingsView: View {
 
                         Divider()
 
-                        HStack {
+                        HStack(alignment: .center) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Горячая клавиша быстрого вызова")
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(theme.textPrimary)
 
-                                Text("Открывает чек-ин из любого приложения")
+                                Text(isRecordingHotkey ? "Нажмите новую комбинацию клавиш на клавиатуре (Esc для отмены)" : "Открывает чек-ин поверх всех окон")
                                     .font(.system(size: 11))
-                                    .foregroundColor(theme.textSecondary)
+                                    .foregroundColor(isRecordingHotkey ? theme.accent : theme.textSecondary)
                             }
 
                             Spacer()
 
-                            Text("⌥ Space (Option + Space)")
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(theme.background)
-                                .cornerRadius(6)
-                                .foregroundColor(theme.textPrimary)
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    if isRecordingHotkey {
+                                        stopRecordingHotkey()
+                                    } else {
+                                        startRecordingHotkey()
+                                    }
+                                }) {
+                                    HStack(spacing: 6) {
+                                        if isRecordingHotkey {
+                                            Circle()
+                                                .fill(Color.red)
+                                                .frame(width: 7, height: 7)
+                                            Text("Запись клавиш...")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(.red)
+                                        } else {
+                                            Text(hotkeyService.displayString)
+                                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                                .foregroundColor(theme.textPrimary)
+                                        }
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(isRecordingHotkey ? Color.red.opacity(0.12) : theme.cardBackground)
+                                    .cornerRadius(6)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(isRecordingHotkey ? Color.red : theme.cardBorder, lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                if !hotkeyService.isDefault && !isRecordingHotkey {
+                                    Button("Сбросить") {
+                                        hotkeyService.resetToDefault()
+                                        showStatus("Клавиша сброшена на ⌥ Space")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(theme.textSecondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
+                                }
+                            }
                         }
 
                         Divider()
@@ -675,6 +716,42 @@ struct SettingsView: View {
             }
         } message: {
             Text("Это действие безвозвратно удалит все сохраненные чек-ины и контекст.")
+        }
+        .onDisappear {
+            stopRecordingHotkey()
+        }
+    }
+
+    private func startRecordingHotkey() {
+        stopRecordingHotkey()
+        isRecordingHotkey = true
+
+        recordingMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { // Escape
+                stopRecordingHotkey()
+                return nil
+            }
+
+            let carbonMods = HotkeyService.carbonModifiers(from: event)
+
+            // Require at least one modifier key (Option, Cmd, Ctrl, or Shift)
+            if carbonMods != 0 {
+                hotkeyService.updateHotkey(keyCode: UInt32(event.keyCode), modifiers: carbonMods)
+                NSSound(named: "Tink")?.play()
+                showStatus("Горячая клавиша сохранена: \(hotkeyService.displayString)")
+                stopRecordingHotkey()
+                return nil
+            }
+
+            return nil
+        }
+    }
+
+    private func stopRecordingHotkey() {
+        isRecordingHotkey = false
+        if let monitor = recordingMonitor {
+            NSEvent.removeMonitor(monitor)
+            recordingMonitor = nil
         }
     }
 
