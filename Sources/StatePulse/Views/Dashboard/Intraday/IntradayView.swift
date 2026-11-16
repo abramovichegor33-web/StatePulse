@@ -7,19 +7,34 @@ struct IntradayView: View {
     @ObservedObject private var themeManager = ThemeManager.shared
     @ObservedObject private var metricManager = MetricManager.shared
 
+    enum RhythmScope: Int {
+        case day = 0
+        case allTime = 1
+    }
+
     @State private var selectedDayDate: Date = Date()
     @State private var activeMetricToggles: Set<String> = []
+    @State private var scope: RhythmScope = .day
 
     private var theme: AppTheme {
         themeManager.theme
     }
 
+    private var scopedRecords: [CheckInRecord] {
+        switch scope {
+        case .day:
+            return selectedDayRecords
+        case .allTime:
+            return checkIns
+        }
+    }
+
     private var phaseStats: [IntradayPhaseStat] {
-        AnalyticsEngine.shared.calculatePhaseStats(records: checkIns, metrics: metricManager.metrics)
+        AnalyticsEngine.shared.calculatePhaseStats(records: scopedRecords, metrics: metricManager.metrics)
     }
 
     private var hourlyCurve: [HourlyCurvePoint] {
-        AnalyticsEngine.shared.generateHourlyCurve(records: checkIns, metrics: metricManager.metrics)
+        AnalyticsEngine.shared.generateHourlyCurve(records: scopedRecords, metrics: metricManager.metrics)
     }
 
     // Filter check-ins for the selected day
@@ -49,17 +64,25 @@ struct IntradayView: View {
             VStack(alignment: .leading, spacing: 20) {
                 // Section 1: Day Phases Cards (Morning, Afternoon, Evening, Night)
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
+                    HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Ритм фаз суток")
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(theme.textPrimary)
 
-                            Text("Как меняется ваше самочувствие в разные части дня")
+                            Text(scope == .day ? "Самочувствие за выбранный день (\(selectedDayFormatted.lowercased()))" : "Усредненный биоритм за всё время наблюдений")
                                 .font(.system(size: 11))
                                 .foregroundColor(theme.textSecondary)
                         }
+
                         Spacer()
+
+                        Picker("", selection: $scope) {
+                            Text("За день (\(selectedDayFormatted))").tag(RhythmScope.day)
+                            Text("За всё время").tag(RhythmScope.allTime)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 260)
                     }
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
