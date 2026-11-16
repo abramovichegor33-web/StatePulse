@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var newReminderMinute: Int = 0
     @State private var showClearConfirmAlert: Bool = false
     @State private var statusMessage: String? = nil
+    @State private var showQRCodeSheet: Bool = false
 
     @State private var editingMetric: MetricDefinition? = nil
     @State private var isAddingNewMetric: Bool = false
@@ -395,6 +396,30 @@ struct SettingsView: View {
                         Text("Автоматическая фоновая синхронизация между устройствами (Mac, Android, Windows). Работает по принципу Offline-First: все записи мгновенно сохраняются локально, а при наличии интернета тихо отправляются в облако.")
                             .font(.system(size: 11))
                             .foregroundColor(theme.textSecondary)
+
+                        Divider()
+
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                showQRCodeSheet = true
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "qrcode")
+                                    Text("Связать с телефоном (QR-код)")
+                                }
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(theme.accent)
+                                .cornerRadius(6)
+                                .foregroundColor(theme.accentText)
+                            }
+                            .buttonStyle(.plain)
+
+                            Text("ID аккаунта: \(cloudSync.userId)")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(theme.textSecondary)
+                        }
                     }
                 }
 
@@ -541,6 +566,84 @@ struct SettingsView: View {
                 isAddingNewMetric = false
                 onDataChanged()
             }
+        }
+        .sheet(isPresented: $showQRCodeSheet) {
+            VStack(spacing: 16) {
+                HStack {
+                    Text("Связка устройств по QR-коду")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(theme.textPrimary)
+                    Spacer()
+                    Button(action: { showQRCodeSheet = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(theme.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if let qrImage = cloudSync.generateQRCodeImage() {
+                    VStack(spacing: 10) {
+                        Image(nsImage: qrImage)
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 200, height: 200)
+                            .padding(12)
+                            .background(Color.white)
+                            .cornerRadius(12)
+
+                        Text("Наведите камеру смартфона на этот QR-код")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(theme.textPrimary)
+
+                        Text("Телефон сразу откроет приложение и привяжется к вашей базе.")
+                            .font(.system(size: 11))
+                            .foregroundColor(theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Button(action: {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(cloudSync.syncURLString, forType: .string)
+                        showStatus("Ссылка скопирована!")
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.on.doc")
+                            Text("Скопировать ссылку")
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(theme.cardBackground)
+                        .cornerRadius(6)
+                        .foregroundColor(theme.textPrimary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(cloudSync.userId, forType: .string)
+                        showStatus("ID аккаунта скопирован!")
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "key.fill")
+                            Text("Скопировать ID")
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(theme.cardBackground)
+                        .cornerRadius(6)
+                        .foregroundColor(theme.textPrimary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+            .frame(width: 340)
+            .background(theme.background)
         }
         .alert("Очистить все данные?", isPresented: $showClearConfirmAlert) {
             Button("Отмена", role: .cancel) {}

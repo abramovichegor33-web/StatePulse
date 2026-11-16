@@ -12,6 +12,7 @@ private struct SupabaseCheckInDTO: Codable {
     let note: String
     let screen_time_seconds: Int
     let metric_scores: [String: Int]
+    let user_id: String?
 }
 
 @MainActor
@@ -25,6 +26,42 @@ final class CloudSyncService: ObservableObject {
     @Published var lastSyncTime: Date? = nil
     @Published var isConnected: Bool = true
     @Published var statusMessage: String = "Синхронизировано"
+    @Published var userId: String {
+        didSet {
+            UserDefaults.standard.set(userId, forKey: "statepulse_cloud_user_id")
+        }
+    }
+
+    var syncURLString: String {
+        "https://abramovichegor33-web.github.io/StatePulse/?sync=\(userId)"
+    }
+
+    func generateQRCodeImage() -> NSImage? {
+        guard let data = syncURLString.data(using: .utf8) else { return nil }
+
+        if let filter = CIFilter(name: "CIQRCodeGenerator") {
+            filter.setValue(data, forKey: "inputMessage")
+            filter.setValue("M", forKey: "inputCorrectionLevel")
+
+            if let outputImage = filter.outputImage {
+                let transform = CGAffineTransform(scaleX: 10, y: 10)
+                let scaledImage = outputImage.transformed(by: transform)
+
+                let rep = NSCIImageRep(ciImage: scaledImage)
+                let nsImage = NSImage(size: rep.size)
+                nsImage.addRepresentation(rep)
+                return nsImage
+            }
+        }
+        return nil
+    }
+
+    func linkDevice(withCode code: String) async {
+        let clean = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return }
+        self.userId = clean
+        await syncAll()
+    }
 
     private let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -41,6 +78,13 @@ final class CloudSyncService: ObservableObject {
     private var syncTimer: Timer?
 
     private init() {
+        if let saved = UserDefaults.standard.string(forKey: "statepulse_cloud_user_id"), !saved.isEmpty {
+            self.userId = saved
+        } else {
+            self.userId = "default"
+            UserDefaults.standard.set("default", forKey: "statepulse_cloud_user_id")
+        }
+
         Task {
             await syncAll()
         }
@@ -103,7 +147,8 @@ final class CloudSyncService: ObservableObject {
                 tags: record.tags,
                 note: record.note,
                 screen_time_seconds: record.screenTimeSeconds,
-                metric_scores: record.metricScores
+                metric_scores: record.metricScores,
+                user_id: self.userId
             )
 
             guard let url = URL(string: "\(baseURL)/check_ins") else { return }
@@ -128,7 +173,7 @@ final class CloudSyncService: ObservableObject {
         guard isConnected else { return }
 
         Task {
-            guard let url = URL(string: "\(baseURL)/check_ins?id=eq.\(id.uuidString.lowercased())") else { return }
+            guard let url = URL(string: "\(baseURL)/check_ins?id=eq.\(id.uuidString.lowercased())&user_id=eq.\(self.userId)") else { return }
             let req = makeRequest(url: url, method: "DELETE")
             _ = try? await URLSession.shared.data(for: req)
         }
@@ -140,7 +185,7 @@ final class CloudSyncService: ObservableObject {
         isSyncing = true
         statusMessage = "Синхронизация..."
 
-        guard let url = URL(string: "\(baseURL)/check_ins?select=*") else {
+        guard let url = URL(string: "\(baseURL)/check_ins?user_id=eq.\(self.userId)&select=*") else {
             isSyncing = false
             return
         }
@@ -196,7 +241,8 @@ final class CloudSyncService: ObservableObject {
                         tags: record.tags,
                         note: record.note,
                         screen_time_seconds: record.screenTimeSeconds,
-                        metric_scores: record.metricScores
+                        metric_scores: record.metricScores,
+                        user_id: self.userId
                     )
                     toUpload.append(dto)
                 }
