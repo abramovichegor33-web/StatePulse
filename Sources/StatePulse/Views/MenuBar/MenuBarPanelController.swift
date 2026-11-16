@@ -84,9 +84,13 @@ final class MenuBarPanelController: NSObject, ObservableObject, NSWindowDelegate
         guard let p = panel else { return }
 
         // Position window strictly below status bar
-        guard let buttonWindow = statusButton.window else { return }
-        let buttonScreenRect = buttonWindow.convertToScreen(statusButton.bounds)
         let screen = statusButton.window?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        let buttonScreenRect: NSRect
+        if let buttonWindow = statusButton.window {
+            buttonScreenRect = buttonWindow.convertToScreen(statusButton.bounds)
+        } else {
+            buttonScreenRect = NSRect(x: screen.visibleFrame.maxX - 120, y: screen.visibleFrame.maxY, width: 24, height: 24)
+        }
 
         let panelWidth: CGFloat = 340
         let bottomSafeLimit = screen.visibleFrame.minY + 12

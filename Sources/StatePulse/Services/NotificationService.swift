@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import UserNotifications
 
 struct ReminderTime: Identifiable, Codable, Equatable {
@@ -18,6 +19,7 @@ final class NotificationService: NSObject, ObservableObject, UNUserNotificationC
 
     @Published var reminders: [ReminderTime] = []
     @Published var isNotificationsAuthorized: Bool = false
+    @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
     private let userDefaultsKey = "statepulse_reminder_times"
 
@@ -31,6 +33,7 @@ final class NotificationService: NSObject, ObservableObject, UNUserNotificationC
     func checkAuthorization() {
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             Task { @MainActor [weak self] in
+                self?.authorizationStatus = settings.authorizationStatus
                 self?.isNotificationsAuthorized = (settings.authorizationStatus == .authorized)
             }
         }
@@ -39,12 +42,18 @@ final class NotificationService: NSObject, ObservableObject, UNUserNotificationC
     func requestAuthorization(completion: ((Bool) -> Void)? = nil) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] granted, _ in
             Task { @MainActor [weak self] in
-                self?.isNotificationsAuthorized = granted
+                self?.checkAuthorization()
                 if granted {
                     self?.rescheduleAll()
                 }
                 completion?(granted)
             }
+        }
+    }
+
+    func openSystemNotificationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -106,7 +115,7 @@ final class NotificationService: NSObject, ObservableObject, UNUserNotificationC
 
             let content = UNMutableNotificationContent()
             content.title = "Как ваше самочувствие?"
-            content.body = "Сделайте быстрый чек-ин за 5 секунд, чтобы сохранить ритм."
+            content.body = "Сделайте быстрый чек-ин за 5 секунд, чтобы зафиксировать ритм."
             content.sound = .default
 
             let request = UNNotificationRequest(
@@ -117,31 +126,65 @@ final class NotificationService: NSObject, ObservableObject, UNUserNotificationC
 
             center.add(request) { error in
                 if let error = error {
-                    print("Error scheduling reminder: \(error)")
+                    print("StatePulse: Error scheduling reminder: \(error)")
                 }
             }
         }
     }
 
     func sendTestNotification() {
-        requestAuthorization { granted in
-            guard granted else { return }
+        // Immediate audio feedback
+        NSSound(named: "Glass")?.play()
+
+        requestAuthorization { [weak self] granted in
+            guard granted else {
+                self?.checkAuthorization()
+                return
+            }
+
             let content = UNMutableNotificationContent()
             content.title = "Чек-ин состояния"
-            content.body = "Тестовое уведомление: время зафиксировать уровень энергии и фокуса!"
+            content.body = "Тестовое напоминание: время зафиксировать уровень энергии и фокуса!"
             content.sound = .default
 
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-            let request = UNNotificationRequest(identifier: "StatePulse_Test_\(UUID().uuidString)", content: content, trigger: trigger)
-            UNUserNotificationCenter.current().add(request)
+            // nil trigger sends immediately
+            let request = UNNotificationRequest(
+                identifier: "StatePulse_Test_\(UUID().uuidString)",
+                content: content,
+                trigger: nil
+            )
+
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("StatePulse: Error sending notification: \(error)")
+                }
+            }
         }
     }
 
+    // Deliver notification banner even if app is frontmost
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        completionHandler([.banner, .sound, .list, .badge])
+    }
+
+    // Open check-in panel when notification is clicked
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        DispatchQueue.main.async {
+            if let delegate = NSApp.delegate as? AppDelegate,
+               let button = delegate.statusItem.button {
+                MenuBarPanelController.shared.show(relativeTo: button) {
+                    DashboardWindowController.shared.showWindow()
+                }
+            }
+        }
+        completionHandler()
     }
 }

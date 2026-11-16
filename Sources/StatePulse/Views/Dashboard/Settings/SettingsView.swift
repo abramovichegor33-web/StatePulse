@@ -174,29 +174,50 @@ struct SettingsView: View {
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(theme.textPrimary)
 
-                                Text(notificationService.isNotificationsAuthorized ? "Разрешены в macOS" : "Требуется разрешение в Настройках macOS")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(notificationService.isNotificationsAuthorized ? .green : .orange)
+                                if notificationService.authorizationStatus == .denied {
+                                    Text("Заблокированы в Системных настройках macOS")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.red)
+                                } else if notificationService.isNotificationsAuthorized {
+                                    Text("Разрешены в macOS")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.green)
+                                } else {
+                                    Text("Требуется разрешение в macOS")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.orange)
+                                }
                             }
 
                             Spacer()
 
-                            if !notificationService.isNotificationsAuthorized {
+                            if notificationService.authorizationStatus == .denied {
+                                Button("Открыть Настройки") {
+                                    notificationService.openSystemNotificationSettings()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .font(.system(size: 11))
+                            } else if !notificationService.isNotificationsAuthorized {
                                 Button("Разрешить") {
                                     notificationService.requestAuthorization()
                                 }
                                 .buttonStyle(.borderedProminent)
+                                .font(.system(size: 11))
                             } else {
                                 Button("Тестовое уведомление") {
                                     notificationService.sendTestNotification()
-                                    showStatus("Тестовое уведомление отправлено!")
+                                    showStatus("Тестовое напоминание отправлено!")
                                 }
                                 .buttonStyle(.plain)
-                                .font(.system(size: 11))
+                                .font(.system(size: 11, weight: .medium))
                                 .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(theme.background)
+                                .padding(.vertical, 5)
+                                .background(theme.cardBackground)
                                 .cornerRadius(6)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(theme.cardBorder, lineWidth: 1)
+                                )
                             }
                         }
 
