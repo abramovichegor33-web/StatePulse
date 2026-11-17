@@ -1,5 +1,23 @@
 import SwiftUI
 
+struct QuickPreset: Identifiable, Equatable {
+    let id: String
+    let icon: String
+    let label: String
+    let baseScore: Int
+    let bodyScore: Int
+    let mindScore: Int
+    let focusScore: Int
+    let tag: String?
+}
+
+private let quickPresets: [QuickPreset] = [
+    QuickPreset(id: "flow", icon: "⚡️", label: "В потоке", baseScore: 9, bodyScore: 9, mindScore: 9, focusScore: 9, tag: "Результат"),
+    QuickPreset(id: "normal", icon: "☕️", label: "В норме", baseScore: 7, bodyScore: 7, mindScore: 7, focusScore: 7, tag: nil),
+    QuickPreset(id: "tired", icon: "🥱", label: "Устал", baseScore: 3, bodyScore: 3, mindScore: 4, focusScore: 3, tag: "Недосып"),
+    QuickPreset(id: "chill", icon: "🎮", label: "Отдых", baseScore: 7, bodyScore: 8, mindScore: 8, focusScore: 4, tag: "Отдых")
+]
+
 struct PopoverContentView: View {
     var onClose: (() -> Void)?
     var onOpenDashboard: (() -> Void)?
@@ -15,6 +33,7 @@ struct PopoverContentView: View {
 
     @State private var selectedPhase: TimeOfDayPhase = TimeOfDayPhase.current()
     @State private var todayCheckIns: [CheckInRecord] = []
+    @State private var selectedPresetId: String? = nil
 
     @State private var isSavedAnimation: Bool = false
     @State private var currentStreak: Int = 0
@@ -123,6 +142,63 @@ struct PopoverContentView: View {
                 }
 
                 Spacer()
+            }
+
+            // Quick Presets (1-Click State)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("БЫСТРЫЙ ЧЕК-ИН")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .foregroundColor(theme.textSecondary)
+                        .tracking(0.6)
+
+                    Spacer()
+
+                    if let selectedId = selectedPresetId,
+                       let p = quickPresets.first(where: { $0.id == selectedId }) {
+                        Text("«\(p.label)» выбран • ⏎ для сохранения")
+                            .font(.system(size: 8.5, weight: .medium))
+                            .foregroundColor(theme.accent)
+                    } else {
+                        Text("кликните дважды для мгновенного сохранения")
+                            .font(.system(size: 8.5))
+                            .foregroundColor(theme.textSecondary.opacity(0.7))
+                    }
+                }
+
+                HStack(spacing: 5) {
+                    ForEach(quickPresets) { preset in
+                        let isSelected = selectedPresetId == preset.id
+
+                        Button(action: {
+                            if selectedPresetId == preset.id {
+                                applyPreset(preset, instantSave: true)
+                            } else {
+                                applyPreset(preset, instantSave: false)
+                            }
+                        }) {
+                            HStack(spacing: 3) {
+                                Text(preset.icon)
+                                    .font(.system(size: 10))
+                                Text(preset.label)
+                                    .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(isSelected ? theme.accent.opacity(0.18) : theme.cardBackground)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(isSelected ? theme.accent : theme.cardBorder, lineWidth: 1)
+                                    )
+                            )
+                            .foregroundColor(isSelected ? theme.accent : theme.textPrimary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
 
             Divider()
@@ -242,7 +318,13 @@ struct PopoverContentView: View {
                             Text("Сохранено!")
                                 .font(.system(size: 12, weight: .semibold))
                         } else {
-                            Text("Сохранить")
+                            let label: String = {
+                                if let id = selectedPresetId, let p = quickPresets.first(where: { $0.id == id }) {
+                                    return "Сохранить «\(p.label)»"
+                                }
+                                return "Сохранить"
+                            }()
+                            Text(label)
                                 .font(.system(size: 12, weight: .semibold))
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 10, weight: .semibold))
@@ -258,6 +340,7 @@ struct PopoverContentView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut(.defaultAction)
                 .disabled(isSavedAnimation)
             }
             .padding(.top, 2)
@@ -311,7 +394,10 @@ struct PopoverContentView: View {
             metric: metric,
             value: Binding(
                 get: { scores[metric.id] ?? 7 },
-                set: { scores[metric.id] = $0 }
+                set: {
+                    scores[metric.id] = $0
+                    selectedPresetId = nil
+                }
             ),
             onEdit: {
                 editingMetric = metric
@@ -408,10 +494,31 @@ struct PopoverContentView: View {
         loadTodayCheckIns()
 
         note = ""
+        selectedPresetId = nil
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             isSavedAnimation = false
             onClose?()
+        }
+    }
+
+    private func applyPreset(_ preset: QuickPreset, instantSave: Bool = false) {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+            selectedPresetId = preset.id
+            scores["body"] = preset.bodyScore
+            scores["mind"] = preset.mindScore
+            scores["focus"] = preset.focusScore
+            for metric in metricManager.metrics {
+                if metric.id != "body" && metric.id != "mind" && metric.id != "focus" {
+                    scores[metric.id] = preset.baseScore
+                }
+            }
+            if let tag = preset.tag {
+                selectedTags.insert(tag)
+            }
+        }
+        if instantSave {
+            saveCheckIn()
         }
     }
 }

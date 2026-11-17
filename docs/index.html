@@ -90,6 +90,32 @@
         </div>
       </div>
 
+      <!-- Quick Mood / State Presets (1-Click) -->
+      <div class="space-y-1.5 pt-1">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold text-appSubtext tracking-wider uppercase">БЫСТРЫЙ ЧЕК-ИН (1 КЛИК)</span>
+          <span id="presetHint" class="text-[10px] text-appSubtext transition-colors">Двойной тап = мгновенно сохранить</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5" id="presetChips">
+          <button onclick="handlePresetClick('flow')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-flow">
+            <span class="text-base">⚡️</span>
+            <span class="text-[11px] font-semibold">В потоке</span>
+          </button>
+          <button onclick="handlePresetClick('normal')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-normal">
+            <span class="text-base">☕️</span>
+            <span class="text-[11px] font-semibold">В норме</span>
+          </button>
+          <button onclick="handlePresetClick('tired')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-tired">
+            <span class="text-base">🥱</span>
+            <span class="text-[11px] font-semibold">Устал</span>
+          </button>
+          <button onclick="handlePresetClick('chill')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-chill">
+            <span class="text-base">🎮</span>
+            <span class="text-[11px] font-semibold">Отдых</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Segmented Sliders -->
       <div class="space-y-3 pt-1">
         <!-- Body Energy -->
@@ -261,6 +287,17 @@
 
     const DEFAULT_TAGS = ['Недосып', 'Тренировка', 'Много работы', 'Стресс', 'Результат', 'Залип в экран', 'Отдых', 'Играю'];
 
+    // 1-Click State Presets
+    const PRESETS = {
+      flow: { label: 'В потоке', body: 9, mind: 9, focus: 9, tag: 'Результат' },
+      normal: { label: 'В норме', body: 7, mind: 7, focus: 7, tag: null },
+      tired: { label: 'Устал', body: 3, mind: 4, focus: 3, tag: 'Недосып' },
+      chill: { label: 'Отдых', body: 8, mind: 8, focus: 4, tag: 'Отдых' }
+    };
+    let activePresetId = null;
+    let lastPresetClickTime = 0;
+    let lastPresetClickedId = null;
+
     // State
     let currentPhase = getCurrentPhaseId();
     let scores = { body: 7, mind: 7, focus: 7 };
@@ -392,8 +429,66 @@
       return 'Пик ресурса';
     }
 
+    function handlePresetClick(presetId) {
+      const now = Date.now();
+      const p = PRESETS[presetId];
+      if (!p) return;
+
+      const isDoubleTap = (lastPresetClickedId === presetId) && (now - lastPresetClickTime < 650);
+      lastPresetClickTime = now;
+      lastPresetClickedId = presetId;
+
+      applyPreset(presetId);
+
+      if (isDoubleTap) {
+        showToast(`⚡️ Сохраняем «${p.label}»...`);
+        saveCheckIn();
+      }
+    }
+
+    function applyPreset(presetId) {
+      const p = PRESETS[presetId];
+      if (!p) return;
+
+      activePresetId = presetId;
+      scores.body = p.body;
+      scores.mind = p.mind;
+      scores.focus = p.focus;
+
+      if (p.tag) {
+        selectedTags.add(p.tag);
+        renderTags();
+      }
+
+      renderSliders();
+      updatePresetChipsUI();
+
+      const hint = document.getElementById('presetHint');
+      if (hint) {
+        hint.innerHTML = `<span class="text-white font-medium">«${p.label}» • тапните ещё раз для сохранения</span>`;
+      }
+    }
+
+    function updatePresetChipsUI() {
+      Object.keys(PRESETS).forEach(id => {
+        const btn = document.getElementById(`preset-btn-${id}`);
+        if (!btn) return;
+        if (id === activePresetId) {
+          btn.classList.add('border-white', 'bg-white/10', 'text-white', 'shadow-sm');
+          btn.classList.remove('border-appBorder', 'bg-appCard');
+        } else {
+          btn.classList.remove('border-white', 'bg-white/10', 'text-white', 'shadow-sm');
+          btn.classList.add('border-appBorder', 'bg-appCard');
+        }
+      });
+    }
+
     function setScore(metric, val) {
       scores[metric] = val;
+      activePresetId = null;
+      updatePresetChipsUI();
+      const hint = document.getElementById('presetHint');
+      if (hint) hint.textContent = 'Двойной тап = мгновенно сохранить';
       if (navigator.vibrate) navigator.vibrate(15);
       renderSliders();
     }
@@ -462,6 +557,10 @@
       btn.classList.add('bg-emerald-500', 'text-white');
 
       document.getElementById('noteInput').value = '';
+      activePresetId = null;
+      updatePresetChipsUI();
+      const hint = document.getElementById('presetHint');
+      if (hint) hint.textContent = 'Двойной тап = мгновенно сохранить';
 
       setTimeout(() => {
         btn.innerHTML = `<span>Сохранить чек-ин</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>`;

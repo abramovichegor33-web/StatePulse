@@ -30,7 +30,7 @@ final class MenuBarPanelController: NSObject, ObservableObject, NSWindowDelegate
 
     private func setupPanel() {
         let p = CustomMenuBarPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 460),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 490),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -96,7 +96,7 @@ final class MenuBarPanelController: NSObject, ObservableObject, NSWindowDelegate
         let bottomSafeLimit = screen.visibleFrame.minY + 12
         let topSafeLimit = buttonScreenRect.minY - 6
         let maxAvailableHeight = max(380, topSafeLimit - bottomSafeLimit)
-        let panelHeight = min(460, maxAvailableHeight)
+        let panelHeight = min(490, maxAvailableHeight)
 
         var x = buttonScreenRect.midX - panelWidth / 2
         let minX = screen.visibleFrame.minX + 8
