@@ -1,23 +1,5 @@
 import SwiftUI
 
-struct QuickPreset: Identifiable, Equatable {
-    let id: String
-    let icon: String
-    let label: String
-    let baseScore: Int
-    let bodyScore: Int
-    let mindScore: Int
-    let focusScore: Int
-    let tag: String?
-}
-
-private let quickPresets: [QuickPreset] = [
-    QuickPreset(id: "flow", icon: "⚡️", label: "В потоке", baseScore: 9, bodyScore: 9, mindScore: 9, focusScore: 9, tag: "Результат"),
-    QuickPreset(id: "normal", icon: "☕️", label: "В норме", baseScore: 7, bodyScore: 7, mindScore: 7, focusScore: 7, tag: nil),
-    QuickPreset(id: "tired", icon: "🥱", label: "Устал", baseScore: 3, bodyScore: 3, mindScore: 4, focusScore: 3, tag: "Недосып"),
-    QuickPreset(id: "chill", icon: "🎮", label: "Отдых", baseScore: 7, bodyScore: 8, mindScore: 8, focusScore: 4, tag: "Отдых")
-]
-
 struct PopoverContentView: View {
     var onClose: (() -> Void)?
     var onOpenDashboard: (() -> Void)?
@@ -25,6 +7,7 @@ struct PopoverContentView: View {
     @ObservedObject private var themeManager = ThemeManager.shared
     @ObservedObject private var passiveTracker = PassiveTrackerService.shared
     @ObservedObject private var metricManager = MetricManager.shared
+    @ObservedObject private var presetManager = PresetManager.shared
     @ObservedObject private var panelController = MenuBarPanelController.shared
 
     @State private var scores: [String: Int] = [:]
@@ -40,6 +23,7 @@ struct PopoverContentView: View {
 
     @State private var editingMetric: MetricDefinition? = nil
     @State private var isAddingNewMetric: Bool = false
+    @State private var editingPreset: QuickPreset? = nil
 
     private var theme: AppTheme {
         themeManager.theme
@@ -146,28 +130,40 @@ struct PopoverContentView: View {
 
             // Quick Presets (1-Click State)
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
+                HStack(spacing: 5) {
                     Text("БЫСТРЫЙ ЧЕК-ИН")
                         .font(.system(size: 8.5, weight: .bold))
                         .foregroundColor(theme.textSecondary)
                         .tracking(0.6)
 
+                    Button(action: {
+                        if let first = presetManager.presets.first {
+                            editingPreset = first
+                        }
+                    }) {
+                        Image(systemName: "slider.horizontal.2.square")
+                            .font(.system(size: 9))
+                            .foregroundColor(theme.textSecondary.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Настроить пресеты (названия, баллы, теги)")
+
                     Spacer()
 
                     if let selectedId = selectedPresetId,
-                       let p = quickPresets.first(where: { $0.id == selectedId }) {
-                        Text("«\(p.label)» выбран • ⏎ для сохранения")
+                       let p = presetManager.presets.first(where: { $0.id == selectedId }) {
+                        Text("«\(p.label)» • ⏎ для сохранения")
                             .font(.system(size: 8.5, weight: .medium))
                             .foregroundColor(theme.accent)
                     } else {
-                        Text("кликните дважды для мгновенного сохранения")
+                        Text("двойной клик = мгновенное сохранение")
                             .font(.system(size: 8.5))
                             .foregroundColor(theme.textSecondary.opacity(0.7))
                     }
                 }
 
                 HStack(spacing: 5) {
-                    ForEach(quickPresets) { preset in
+                    ForEach(presetManager.presets) { preset in
                         let isSelected = selectedPresetId == preset.id
 
                         Button(action: {
@@ -182,6 +178,7 @@ struct PopoverContentView: View {
                                     .font(.system(size: 10))
                                 Text(preset.label)
                                     .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                                    .lineLimit(1)
                             }
                             .padding(.horizontal, 6)
                             .padding(.vertical, 4)
@@ -197,6 +194,15 @@ struct PopoverContentView: View {
                             .foregroundColor(isSelected ? theme.accent : theme.textPrimary)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Настроить «\(preset.label)»...") {
+                                editingPreset = preset
+                            }
+                            Divider()
+                            Button("Восстановить стандартные пресеты") {
+                                presetManager.resetToDefault()
+                            }
+                        }
                     }
                 }
             }
@@ -319,7 +325,7 @@ struct PopoverContentView: View {
                                 .font(.system(size: 12, weight: .semibold))
                         } else {
                             let label: String = {
-                                if let id = selectedPresetId, let p = quickPresets.first(where: { $0.id == id }) {
+                                if let id = selectedPresetId, let p = presetManager.presets.first(where: { $0.id == id }) {
                                     return "Сохранить «\(p.label)»"
                                 }
                                 return "Сохранить"
@@ -367,6 +373,11 @@ struct PopoverContentView: View {
         .sheet(isPresented: $isAddingNewMetric) {
             EditMetricSheet(metricToEdit: nil) {
                 isAddingNewMetric = false
+            }
+        }
+        .sheet(item: $editingPreset) { preset in
+            EditPresetSheet(presetToEdit: preset) {
+                editingPreset = nil
             }
         }
         .onAppear {
@@ -505,13 +516,8 @@ struct PopoverContentView: View {
     private func applyPreset(_ preset: QuickPreset, instantSave: Bool = false) {
         withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
             selectedPresetId = preset.id
-            scores["body"] = preset.bodyScore
-            scores["mind"] = preset.mindScore
-            scores["focus"] = preset.focusScore
             for metric in metricManager.metrics {
-                if metric.id != "body" && metric.id != "mind" && metric.id != "focus" {
-                    scores[metric.id] = preset.baseScore
-                }
+                scores[metric.id] = preset.score(for: metric.id)
             }
             if let tag = preset.tag {
                 selectedTags.insert(tag)

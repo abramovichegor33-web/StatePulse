@@ -93,26 +93,18 @@
       <!-- Quick Mood / State Presets (1-Click) -->
       <div class="space-y-1.5 pt-1">
         <div class="flex items-center justify-between">
-          <span class="text-[10px] font-bold text-appSubtext tracking-wider uppercase">БЫСТРЫЙ ЧЕК-ИН (1 КЛИК)</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] font-bold text-appSubtext tracking-wider uppercase">БЫСТРЫЙ ЧЕК-ИН (1 КЛИК)</span>
+            <button onclick="openPresetsModal()" class="text-appSubtext hover:text-appText text-xs p-0.5 rounded transition" title="Настроить пресеты">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+            </button>
+          </div>
           <span id="presetHint" class="text-[10px] text-appSubtext transition-colors">Двойной тап = мгновенно сохранить</span>
         </div>
         <div class="grid grid-cols-4 gap-1.5" id="presetChips">
-          <button onclick="handlePresetClick('flow')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-flow">
-            <span class="text-base">⚡️</span>
-            <span class="text-[11px] font-semibold">В потоке</span>
-          </button>
-          <button onclick="handlePresetClick('normal')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-normal">
-            <span class="text-base">☕️</span>
-            <span class="text-[11px] font-semibold">В норме</span>
-          </button>
-          <button onclick="handlePresetClick('tired')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-tired">
-            <span class="text-base">🥱</span>
-            <span class="text-[11px] font-semibold">Устал</span>
-          </button>
-          <button onclick="handlePresetClick('chill')" class="preset-btn p-2 rounded-xl border bg-appCard border-appBorder text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-chill">
-            <span class="text-base">🎮</span>
-            <span class="text-[11px] font-semibold">Отдых</span>
-          </button>
+          <!-- Populated by renderPresetChips() -->
         </div>
       </div>
 
@@ -288,15 +280,28 @@
     const DEFAULT_TAGS = ['Недосып', 'Тренировка', 'Много работы', 'Стресс', 'Результат', 'Залип в экран', 'Отдых', 'Играю'];
 
     // 1-Click State Presets
-    const PRESETS = {
-      flow: { label: 'В потоке', body: 9, mind: 9, focus: 9, tag: 'Результат' },
-      normal: { label: 'В норме', body: 7, mind: 7, focus: 7, tag: null },
-      tired: { label: 'Устал', body: 3, mind: 4, focus: 3, tag: 'Недосып' },
-      chill: { label: 'Отдых', body: 8, mind: 8, focus: 4, tag: 'Отдых' }
+    const DEFAULT_PRESETS = {
+      flow: { icon: '⚡️', label: 'В потоке', body: 9, mind: 9, focus: 9, tag: 'Результат' },
+      normal: { icon: '☕️', label: 'В норме', body: 7, mind: 7, focus: 7, tag: '' },
+      tired: { icon: '🥱', label: 'Устал', body: 3, mind: 4, focus: 3, tag: 'Недосып' },
+      chill: { icon: '🎮', label: 'Отдых', body: 8, mind: 8, focus: 4, tag: 'Отдых' }
     };
+
+    function loadSavedPresets() {
+      const saved = localStorage.getItem('sp_presets');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+      return JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+    }
+
+    let PRESETS = loadSavedPresets();
     let activePresetId = null;
     let lastPresetClickTime = 0;
     let lastPresetClickedId = null;
+    let activeEditingPresetId = 'flow';
 
     // State
     let currentPhase = getCurrentPhaseId();
@@ -351,6 +356,7 @@
       checkURLSyncParam();
       loadLocalRecords();
       renderPhaseButtons();
+      renderPresetChips();
       renderSliders();
       renderTags();
       renderCurrentDate();
@@ -481,6 +487,99 @@
           btn.classList.add('border-appBorder', 'bg-appCard');
         }
       });
+    }
+
+    function renderPresetChips() {
+      const container = document.getElementById('presetChips');
+      if (!container) return;
+      container.innerHTML = Object.keys(PRESETS).map(id => {
+        const p = PRESETS[id];
+        const isSelected = id === activePresetId;
+        return `
+          <button onclick="handlePresetClick('${id}')" class="preset-btn p-2 rounded-xl border ${
+            isSelected 
+              ? 'border-white bg-white/10 text-white shadow-sm' 
+              : 'border-appBorder bg-appCard text-appText'
+          } text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition" id="preset-btn-${id}">
+            <span class="text-base">${p.icon}</span>
+            <span class="text-[11px] font-semibold truncate w-full text-center">${p.label}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function openPresetsModal() {
+      activeEditingPresetId = 'flow';
+      renderModalPresetTabs();
+      loadModalPresetFields(activeEditingPresetId);
+      document.getElementById('presetsModal').classList.remove('hidden');
+    }
+
+    function closePresetsModal() {
+      document.getElementById('presetsModal').classList.add('hidden');
+    }
+
+    function selectModalPreset(id) {
+      activeEditingPresetId = id;
+      renderModalPresetTabs();
+      loadModalPresetFields(id);
+    }
+
+    function renderModalPresetTabs() {
+      const tabs = document.getElementById('modalPresetTabs');
+      if (!tabs) return;
+      tabs.innerHTML = Object.keys(PRESETS).map(id => {
+        const p = PRESETS[id];
+        const isSelected = id === activeEditingPresetId;
+        return `
+          <button onclick="selectModalPreset('${id}')" class="py-1.5 px-1 rounded-lg text-xs font-medium flex flex-col items-center transition ${
+            isSelected ? 'bg-appCard text-appText font-bold shadow' : 'text-appSubtext'
+          }">
+            <span>${p.icon}</span>
+            <span class="text-[10px] truncate w-full text-center">${p.label}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function loadModalPresetFields(id) {
+      const p = PRESETS[id];
+      if (!p) return;
+      document.getElementById('modalPresetIcon').value = p.icon;
+      document.getElementById('modalPresetLabel').value = p.label;
+      document.getElementById('modalBodyRange').value = p.body;
+      document.getElementById('modalBodyVal').textContent = p.body;
+      document.getElementById('modalMindRange').value = p.mind;
+      document.getElementById('modalMindVal').textContent = p.mind;
+      document.getElementById('modalFocusRange').value = p.focus;
+      document.getElementById('modalFocusVal').textContent = p.focus;
+      document.getElementById('modalPresetTag').value = p.tag || '';
+    }
+
+    function saveModalPreset() {
+      const id = activeEditingPresetId;
+      const icon = document.getElementById('modalPresetIcon').value.trim() || '⚡️';
+      const label = document.getElementById('modalPresetLabel').value.trim() || 'Пресет';
+      const body = parseInt(document.getElementById('modalBodyRange').value, 10) || 7;
+      const mind = parseInt(document.getElementById('modalMindRange').value, 10) || 7;
+      const focus = parseInt(document.getElementById('modalFocusRange').value, 10) || 7;
+      const tag = document.getElementById('modalPresetTag').value.trim();
+
+      PRESETS[id] = { icon, label, body, mind, focus, tag };
+      localStorage.setItem('sp_presets', JSON.stringify(PRESETS));
+      renderPresetChips();
+      renderModalPresetTabs();
+      showToast(`✓ Пресет «${label}» обновлен!`);
+      closePresetsModal();
+    }
+
+    function resetPresetsToDefault() {
+      PRESETS = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+      localStorage.setItem('sp_presets', JSON.stringify(PRESETS));
+      renderPresetChips();
+      renderModalPresetTabs();
+      loadModalPresetFields(activeEditingPresetId);
+      showToast('✓ Пресеты сброшены к стандартным');
     }
 
     function setScore(metric, val) {
@@ -945,6 +1044,78 @@
     // Start
     init();
   </script>
+
+  <!-- Quick Presets Configuration Modal -->
+  <div id="presetsModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+    <div class="bg-appCard border border-appBorder rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl safe-bottom max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-appText">Настройка пресетов (1 клик)</h3>
+        <button onclick="closePresetsModal()" class="text-appSubtext hover:text-appText text-sm p-1">✕</button>
+      </div>
+
+      <!-- Preset Selector Tabs -->
+      <div class="grid grid-cols-4 gap-1 p-1 bg-appBg rounded-xl border border-appBorder" id="modalPresetTabs">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Preset Form -->
+      <div class="space-y-3 pt-1">
+        <div>
+          <label class="text-[10px] font-bold text-appSubtext tracking-wider uppercase block mb-1">Иконка и Название</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="modalPresetIcon" class="w-12 text-center text-base bg-appBg border border-appBorder rounded-lg py-1.5 text-appText focus:outline-none" maxlength="2">
+            <input type="text" id="modalPresetLabel" placeholder="Название пресета" class="flex-1 bg-appBg border border-appBorder rounded-lg px-3 py-1.5 text-xs text-appText focus:outline-none">
+          </div>
+        </div>
+
+        <!-- Scores Configuration -->
+        <div class="space-y-2">
+          <label class="text-[10px] font-bold text-appSubtext tracking-wider uppercase block">Позиции шкал при выборе (1...10)</label>
+          
+          <div class="bg-appBg border border-appBorder rounded-xl p-2.5 space-y-1.5">
+            <div class="flex justify-between text-xs">
+              <span class="text-bodyColor font-medium">❤️ Физическая энергия</span>
+              <span id="modalBodyVal" class="font-bold text-bodyColor">9</span>
+            </div>
+            <input type="range" id="modalBodyRange" min="1" max="10" class="w-full accent-[#E06C75]" oninput="document.getElementById('modalBodyVal').textContent = this.value">
+          </div>
+
+          <div class="bg-appBg border border-appBorder rounded-xl p-2.5 space-y-1.5">
+            <div class="flex justify-between text-xs">
+              <span class="text-mindColor font-medium">🧠 Моральный ресурс</span>
+              <span id="modalMindVal" class="font-bold text-mindColor">9</span>
+            </div>
+            <input type="range" id="modalMindRange" min="1" max="10" class="w-full accent-[#61AFEF]" oninput="document.getElementById('modalMindVal').textContent = this.value">
+          </div>
+
+          <div class="bg-appBg border border-appBorder rounded-xl p-2.5 space-y-1.5">
+            <div class="flex justify-between text-xs">
+              <span class="text-focusColor font-medium">🎯 Фокус и ясность</span>
+              <span id="modalFocusVal" class="font-bold text-focusColor">9</span>
+            </div>
+            <input type="range" id="modalFocusRange" min="1" max="10" class="w-full accent-[#98C379]" oninput="document.getElementById('modalFocusVal').textContent = this.value">
+          </div>
+        </div>
+
+        <!-- Tag -->
+        <div>
+          <label class="text-[10px] font-bold text-appSubtext tracking-wider uppercase block mb-1">Привязанный тег (опционально)</label>
+          <input type="text" id="modalPresetTag" placeholder="Например: Результат, Недосып..." class="w-full bg-appBg border border-appBorder rounded-lg px-3 py-1.5 text-xs text-appText focus:outline-none">
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="space-y-2 pt-2">
+        <button onclick="saveModalPreset()" class="w-full py-2.5 px-4 rounded-xl bg-appText text-appBg text-xs font-bold active:scale-95 transition">
+          Сохранить пресет
+        </button>
+
+        <button onclick="resetPresetsToDefault()" class="w-full py-2 text-appSubtext hover:text-appText text-[11px] font-medium transition text-center">
+          Восстановить пресеты по умолчанию
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Sync & Pairing Modal -->
   <div id="syncModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">

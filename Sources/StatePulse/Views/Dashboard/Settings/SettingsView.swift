@@ -5,6 +5,7 @@ struct SettingsView: View {
 
     @ObservedObject private var themeManager = ThemeManager.shared
     @ObservedObject private var metricManager = MetricManager.shared
+    @ObservedObject private var presetManager = PresetManager.shared
     @ObservedObject private var notificationService = NotificationService.shared
     @ObservedObject private var passiveTracker = PassiveTrackerService.shared
     @ObservedObject private var launchAtLogin = LaunchAtLoginService.shared
@@ -21,6 +22,7 @@ struct SettingsView: View {
 
     @State private var editingMetric: MetricDefinition? = nil
     @State private var isAddingNewMetric: Bool = false
+    @State private var editingPreset: QuickPreset? = nil
 
     private var theme: AppTheme {
         themeManager.theme
@@ -168,7 +170,92 @@ struct SettingsView: View {
                     }
                 }
 
-                // 3. Smart Reminders
+                // 3. Quick Presets Customization
+                settingsSection(title: "Быстрые пресеты состояний (1 клик)", icon: "sparkles") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Настройте названия, иконки, позиции шкал и теги для каждого из быстрых пресетов.")
+                            .font(.system(size: 11))
+                            .foregroundColor(theme.textSecondary)
+
+                        VStack(spacing: 8) {
+                            ForEach(presetManager.presets) { preset in
+                                HStack(spacing: 12) {
+                                    Text(preset.icon)
+                                        .font(.system(size: 16))
+                                        .frame(width: 28, height: 28)
+                                        .background(theme.background)
+                                        .cornerRadius(6)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 6) {
+                                            Text(preset.label)
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundColor(theme.textPrimary)
+
+                                            if let tag = preset.tag {
+                                                Text("#\(tag)")
+                                                    .font(.system(size: 10, weight: .medium))
+                                                    .foregroundColor(theme.accent)
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 1.5)
+                                                    .background(theme.accent.opacity(0.12))
+                                                    .cornerRadius(4)
+                                            }
+                                        }
+
+                                        // Summary of scores
+                                        HStack(spacing: 8) {
+                                            Text("❤️ Тело: \(preset.bodyScore)")
+                                            Text("🧠 Мораль: \(preset.mindScore)")
+                                            Text("🎯 Фокус: \(preset.focusScore)")
+                                            if let custom = preset.customScores {
+                                                ForEach(Array(custom.keys.sorted()), id: \.self) { k in
+                                                    if let m = metricManager.metrics.first(where: { $0.id == k }) {
+                                                        Text("• \(m.name): \(custom[k] ?? 7)")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        .font(.system(size: 10))
+                                        .foregroundColor(theme.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    Button(action: {
+                                        editingPreset = preset
+                                    }) {
+                                        Image(systemName: "pencil")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(theme.textSecondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Настроить название, иконку и баллы")
+                                }
+                                .padding(10)
+                                .background(theme.background)
+                                .cornerRadius(8)
+                            }
+                        }
+
+                        Divider()
+
+                        HStack {
+                            Spacer()
+                            Button("Восстановить стандартные пресеты") {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    presetManager.resetToDefault()
+                                    showStatus("Стандартные пресеты восстановлены")
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(theme.textSecondary)
+                        }
+                    }
+                }
+
+                // 4. Smart Reminders
                 settingsSection(title: "Умные напоминания", icon: "bell.fill") {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
@@ -627,6 +714,11 @@ struct SettingsView: View {
             EditMetricSheet(metricToEdit: nil) {
                 isAddingNewMetric = false
                 onDataChanged()
+            }
+        }
+        .sheet(item: $editingPreset) { preset in
+            EditPresetSheet(presetToEdit: preset) {
+                editingPreset = nil
             }
         }
         .sheet(isPresented: $showQRCodeSheet) {
