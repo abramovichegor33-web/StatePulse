@@ -81,15 +81,15 @@ struct AICoachView: View {
                                         .controlSize(.small)
                                 } else {
                                     Image(systemName: "wand.and.stars")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.system(size: 11, weight: .semibold))
                                 }
 
                                 Text(aiCoach.isGenerating ? "Анализирую..." : "Сгенерировать разбор")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.system(size: 11, weight: .semibold))
                                     .lineLimit(1)
                             }
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
+                            .frame(height: 30)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(theme.accent)
@@ -97,7 +97,7 @@ struct AICoachView: View {
                             .foregroundColor(theme.accentText)
                         }
                         .buttonStyle(.plain)
-                        .fixedSize()
+                        .fixedSize(horizontal: true, vertical: true)
                         .disabled(aiCoach.isGenerating || checkIns.isEmpty)
                     }
                 }
