@@ -18,7 +18,7 @@ struct AICoachView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Header Bar
-                HStack(alignment: .top) {
+                HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
                             Image(systemName: "sparkles")
@@ -38,14 +38,37 @@ struct AICoachView: View {
                     Spacer()
 
                     // Period Selector & Generate Action
-                    HStack(spacing: 8) {
-                        Picker("", selection: $selectedPeriod) {
-                            ForEach(AnalyticsPeriod.allCases) { p in
-                                Text(p.title).tag(p)
+                    HStack(alignment: .center, spacing: 10) {
+                        HStack(spacing: 3) {
+                            ForEach(AnalyticsPeriod.allCases) { period in
+                                let isSelected = selectedPeriod == period
+                                Button(action: {
+                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                        selectedPeriod = period
+                                    }
+                                }) {
+                                    Text(period.title)
+                                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(
+                                            Capsule()
+                                                .fill(isSelected ? theme.accent : Color.clear)
+                                        )
+                                        .foregroundColor(isSelected ? theme.accentText : theme.textSecondary)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .frame(width: 240)
+                        .padding(3)
+                        .background(
+                            Capsule()
+                                .fill(theme.cardBackground)
+                                .overlay(
+                                    Capsule()
+                                        .stroke(theme.cardBorder, lineWidth: 1)
+                                )
+                        )
 
                         Button(action: {
                             Task {
@@ -63,14 +86,18 @@ struct AICoachView: View {
 
                                 Text(aiCoach.isGenerating ? "Анализирую..." : "Сгенерировать разбор")
                                     .font(.system(size: 12, weight: .semibold))
+                                    .lineLimit(1)
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(theme.accent)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(theme.accent)
+                            )
                             .foregroundColor(theme.accentText)
-                            .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
+                        .fixedSize()
                         .disabled(aiCoach.isGenerating || checkIns.isEmpty)
                     }
                 }
