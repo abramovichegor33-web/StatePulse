@@ -162,6 +162,9 @@ struct DashboardMainView: View {
                 case .aiCoach:
                     AICoachView(
                         checkIns: checkIns,
+                        onSelectTab: { tab in
+                            selectedTab = tab
+                        },
                         onOpenSettings: {
                             selectedTab = .settings
                         }

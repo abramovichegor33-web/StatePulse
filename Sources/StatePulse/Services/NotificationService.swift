@@ -162,6 +162,50 @@ final class NotificationService: NSObject, ObservableObject, UNUserNotificationC
         }
     }
 
+    func scheduleOneShotReminder(hour: Int, minute: Int, title: String, body: String) {
+        requestAuthorization { granted in
+            guard granted else { return }
+            var dateComponents = DateComponents()
+            dateComponents.hour = hour
+            dateComponents.minute = minute
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+
+            let request = UNNotificationRequest(
+                identifier: "StatePulse_Experiment_\(hour)_\(minute)_\(Date().timeIntervalSince1970)",
+                content: content,
+                trigger: trigger
+            )
+
+            UNUserNotificationCenter.current().add(request)
+        }
+    }
+
+    func scheduleSprintTimer(minutes: Int) {
+        requestAuthorization { granted in
+            guard granted else { return }
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(minutes * 60), repeats: false)
+
+            let content = UNMutableNotificationContent()
+            content.title = "🎯 Фокус-спринт завершён (\(minutes) мин)!"
+            content.body = "Отличная работа! Сделайте 5-10 минутную паузу без экрана, чтобы перезагрузить внимание."
+            content.sound = .default
+
+            let request = UNNotificationRequest(
+                identifier: "StatePulse_Sprint_\(Date().timeIntervalSince1970)",
+                content: content,
+                trigger: trigger
+            )
+
+            UNUserNotificationCenter.current().add(request)
+        }
+    }
+
     // Deliver notification banner even if app is frontmost
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
