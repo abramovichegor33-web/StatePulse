@@ -17,6 +17,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupServices()
         MenuBarPanelController.shared.preload()
+
+        if CommandLine.arguments.contains("--dashboard") {
+            DashboardWindowController.shared.showWindow()
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        DashboardWindowController.shared.showWindow()
+        return true
     }
 
     private func setupStatusItem() {

@@ -33,7 +33,7 @@ enum DashboardTab: String, CaseIterable, Identifiable {
 struct DashboardMainView: View {
     @ObservedObject private var themeManager = ThemeManager.shared
 
-    @State private var selectedTab: DashboardTab = .overview
+    @AppStorage("dashboard_selected_tab") private var selectedTab: DashboardTab = .aiCoach
     @State private var selectedPeriod: AnalyticsPeriod = .days30
     @State private var checkIns: [CheckInRecord] = []
 
