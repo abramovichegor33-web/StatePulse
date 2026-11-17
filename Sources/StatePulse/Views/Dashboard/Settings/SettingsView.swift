@@ -11,6 +11,7 @@ struct SettingsView: View {
     @ObservedObject private var launchAtLogin = LaunchAtLoginService.shared
     @ObservedObject private var cloudSync = CloudSyncService.shared
     @ObservedObject private var hotkeyService = HotkeyService.shared
+    @ObservedObject private var aiCoach = AICoachService.shared
 
     @State private var newReminderHour: Int = 12
     @State private var newReminderMinute: Int = 0
@@ -19,6 +20,7 @@ struct SettingsView: View {
     @State private var showQRCodeSheet: Bool = false
     @State private var isRecordingHotkey: Bool = false
     @State private var recordingMonitor: Any? = nil
+    @State private var isShowingApiKey: Bool = false
 
     @State private var editingMetric: MetricDefinition? = nil
     @State private var isAddingNewMetric: Bool = false
@@ -251,6 +253,124 @@ struct SettingsView: View {
                             .buttonStyle(.plain)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(theme.textSecondary)
+                        }
+                    }
+                }
+
+                // 3.5. AI Coach & Neural Engine
+                settingsSection(title: "Нейросеть и AI-Коуч (Google Gemini API)", icon: "sparkles") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("StatePulse оснащен локальным эвристическим ИИ-движком, работающим 100% офлайн. Вы также можете бесплатно подключить нейросеть Google Gemini Flash для глубоких инсайтов на русском языке.")
+                            .font(.system(size: 11))
+                            .foregroundColor(theme.textSecondary)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("API-КЛЮЧ GEMINI (ОПЦИОНАЛЬНО)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(theme.textSecondary)
+                                    .tracking(0.5)
+
+                                Spacer()
+
+                                Link("Получить бесплатный ключ в Google AI Studio ↗", destination: URL(string: "https://aistudio.google.com/app/apikey")!)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(theme.accent)
+                            }
+
+                            HStack(spacing: 8) {
+                                Group {
+                                    if isShowingApiKey {
+                                        TextField("AIzaSy...", text: Binding(
+                                            get: { aiCoach.apiKey },
+                                            set: { aiCoach.saveApiKey($0) }
+                                        ))
+                                    } else {
+                                        SecureField("AIzaSy...", text: Binding(
+                                            get: { aiCoach.apiKey },
+                                            set: { aiCoach.saveApiKey($0) }
+                                        ))
+                                    }
+                                }
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 12, design: .monospaced))
+                                .padding(8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(theme.background)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(theme.cardBorder, lineWidth: 1)
+                                        )
+                                )
+
+                                Button(action: {
+                                    isShowingApiKey.toggle()
+                                }) {
+                                    Image(systemName: isShowingApiKey ? "eye.slash" : "eye")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(theme.textSecondary)
+                                        .frame(width: 30, height: 30)
+                                        .background(theme.background)
+                                        .cornerRadius(6)
+                                }
+                                .buttonStyle(.plain)
+                                .help(isShowingApiKey ? "Скрыть ключ" : "Показать ключ")
+
+                                if !aiCoach.apiKey.isEmpty {
+                                    Button("Очистить") {
+                                        aiCoach.saveApiKey("")
+                                        showStatus("API-ключ удален. Включен локальный режим.")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.red)
+                                }
+                            }
+                        }
+
+                        HStack {
+                            Text("Модель нейросети")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(theme.textPrimary)
+
+                            Spacer()
+
+                            Picker("", selection: Binding(
+                                get: { aiCoach.selectedModel },
+                                set: { aiCoach.saveModel($0) }
+                            )) {
+                                Text("Gemini 1.5 Flash (Быстрая и надежная)").tag("gemini-1.5-flash")
+                                Text("Gemini 2.0 Flash (Новейшая)").tag("gemini-2.0-flash")
+                            }
+                            .pickerStyle(.menu)
+                            .frame(width: 260)
+                        }
+
+                        if aiCoach.apiKey.isEmpty {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.shield.fill")
+                                    .foregroundColor(.green)
+                                    .font(.system(size: 11))
+                                Text("Сейчас активен приватный локальный режим: анализ проводится встроенным движком StatePulse прямо на Mac.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(theme.textSecondary)
+                            }
+                            .padding(8)
+                            .background(theme.background)
+                            .cornerRadius(6)
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                    .foregroundColor(.purple)
+                                    .font(.system(size: 11))
+                                Text("Подключен персональный ключ: анализ формируется нейросетью Google Gemini.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(theme.textSecondary)
+                            }
+                            .padding(8)
+                            .background(theme.background)
+                            .cornerRadius(6)
                         }
                     }
                 }

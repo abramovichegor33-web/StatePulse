@@ -208,6 +208,23 @@
       <!-- Summary metrics -->
       <div class="grid grid-cols-3 gap-2" id="overviewMetrics"></div>
 
+      <!-- AI Coach Card -->
+      <div class="bg-appCard border border-appBorder rounded-xl p-3.5 space-y-3 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="text-sm">✨</span>
+            <span class="text-xs font-bold text-appText">AI-Коуч состояния</span>
+          </div>
+          <button onclick="generateMobileAIInsight()" id="aiGenerateBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-appText text-appBg active:scale-95 transition flex items-center gap-1">
+            <span>🪄 Разобрать неделю</span>
+          </button>
+        </div>
+
+        <div id="aiCoachContent" class="space-y-2 text-xs">
+          <div class="text-appSubtext text-[11px] py-1">Нажмите «Разобрать неделю», чтобы получить выжимку драйверов, утечек и эксперимент на следующую неделю.</div>
+        </div>
+      </div>
+
       <!-- Heatmap Container -->
       <div class="bg-appCard border border-appBorder rounded-xl p-3 space-y-2">
         <div class="flex items-center justify-between">
@@ -927,6 +944,83 @@
       } else {
         list.innerHTML = dayRecords.map(r => renderSliceRow(r)).join('');
       }
+    }
+
+    // AI Coach Insight Generator for Mobile PWA
+    function generateMobileAIInsight() {
+      const btn = document.getElementById('aiGenerateBtn');
+      const container = document.getElementById('aiCoachContent');
+      if (records.length === 0) {
+        showToast('Добавьте хотя бы несколько чек-инов для анализа');
+        return;
+      }
+
+      btn.innerHTML = `<span>⏳ Анализирую...</span>`;
+      btn.disabled = true;
+
+      setTimeout(() => {
+        const total = records.length;
+        const avgBody = (records.reduce((a, r) => a + r.body_energy, 0) / total);
+        const avgMind = (records.reduce((a, r) => a + r.mental_resource, 0) / total);
+        const avgFocus = (records.reduce((a, r) => a + r.focus, 0) / total);
+        const composite = (avgBody + avgMind + avgFocus) / 3;
+
+        // Phase calculations
+        const eveningRecords = records.filter(r => getRecordPhase(r.timestamp) === 'evening');
+        const dayRecords = records.filter(r => getRecordPhase(r.timestamp) === 'afternoon');
+        const dayAvg = dayRecords.length ? dayRecords.reduce((a, r) => a + (r.body_energy + r.mental_resource + r.focus) / 3, 0) / dayRecords.length : composite;
+        const eveAvg = eveningRecords.length ? eveningRecords.reduce((a, r) => a + (r.body_energy + r.mental_resource + r.focus) / 3, 0) / eveningRecords.length : composite;
+
+        // Tag calculation
+        let tagMap = {};
+        records.forEach(r => {
+          (r.tags || []).forEach(t => {
+            if (!tagMap[t]) tagMap[t] = [];
+            tagMap[t].push((r.body_energy + r.mental_resource + r.focus) / 3);
+          });
+        });
+
+        let bestTag = null;
+        let worstTag = null;
+        Object.keys(tagMap).forEach(t => {
+          if (tagMap[t].length >= 1) {
+            const avg = tagMap[t].reduce((a, b) => a + b, 0) / tagMap[t].length;
+            if (!bestTag || avg > bestTag.avg) bestTag = { tag: t, avg };
+            if (!worstTag || avg < worstTag.avg) worstTag = { tag: t, avg };
+          }
+        });
+
+        let headline = composite >= 7.0 ? 'Высокая ресурсность и устойчивый тонус' : (composite <= 5.0 ? 'Признаки накопительной усталости' : 'Рабочая норма с потенциалом роста фокуса');
+        let experiment = eveAvg < 5.5 
+          ? '«Цифровой закат»: за 30 минут до конца дня закройте экран и прогуляйтесь 10 минут, чтобы защитить вечернюю энергию.' 
+          : '«Фокус-спринт»: 45 минут работы в тишине с таймером и 5 минут отдыха без телефона.';
+
+        container.innerHTML = `
+          <div class="p-2.5 rounded-lg bg-appBg/80 border border-appBorder space-y-2">
+            <div class="font-bold text-xs text-appText">${headline}</div>
+            <div class="text-[11px] text-appSubtext leading-relaxed">Средний суммарный ресурс: <strong class="text-appText">${composite.toFixed(1)}/10</strong> (Тело: ${avgBody.toFixed(1)}, Мораль: ${avgMind.toFixed(1)}, Фокус: ${avgFocus.toFixed(1)}).</div>
+            
+            <div class="pt-1 space-y-1.5 text-[11px]">
+              <div class="flex items-start gap-1.5 text-emerald-400">
+                <span>🚀</span>
+                <span>${bestTag ? `Драйвер: тег «${bestTag.tag}» дает в среднем ${bestTag.avg.toFixed(1)}/10` : 'Дневные часы (12:00–17:00) показывают пик фокуса'}</span>
+              </div>
+              <div class="flex items-start gap-1.5 text-rose-400">
+                <span>⚠️</span>
+                <span>${worstTag && worstTag.tag !== bestTag?.tag ? `Утечка: при теге «${worstTag.tag}» ресурс падает до ${worstTag.avg.toFixed(1)}/10` : (eveAvg < dayAvg ? `К вечеру энергия снижается на ${(dayAvg - eveAvg).toFixed(1)} балла` : 'Неравномерное распределение пауз в работе')}</span>
+              </div>
+            </div>
+
+            <div class="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
+              <span class="font-bold">💡 Эксперимент недели:</span> ${experiment}
+            </div>
+          </div>
+        `;
+
+        btn.innerHTML = `<span>Обновить разбор</span>`;
+        btn.disabled = false;
+        showToast('✓ AI-разбор обновлен!');
+      }, 500);
     }
 
     // Render History

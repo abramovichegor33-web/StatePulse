@@ -2,6 +2,7 @@ import SwiftUI
 
 enum DashboardTab: String, CaseIterable, Identifiable {
     case overview = "overview"
+    case aiCoach = "ai_coach"
     case intraday = "intraday"
     case history = "history"
     case settings = "settings"
@@ -11,6 +12,7 @@ enum DashboardTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .overview: return "Обзор"
+        case .aiCoach: return "AI-Коуч"
         case .intraday: return "Ритм дня"
         case .history: return "История"
         case .settings: return "Настройки"
@@ -20,6 +22,7 @@ enum DashboardTab: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .overview: return "chart.bar.xaxis"
+        case .aiCoach: return "sparkles"
         case .intraday: return "sun.horizon.fill"
         case .history: return "clock.arrow.circlepath"
         case .settings: return "gearshape"
@@ -155,6 +158,14 @@ struct DashboardMainView: View {
                         }
                         .padding(24)
                     }
+
+                case .aiCoach:
+                    AICoachView(
+                        checkIns: checkIns,
+                        onOpenSettings: {
+                            selectedTab = .settings
+                        }
+                    )
 
                 case .intraday:
                     IntradayView(checkIns: checkIns)

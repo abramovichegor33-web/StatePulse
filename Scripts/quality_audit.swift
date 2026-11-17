@@ -157,6 +157,24 @@ let sampleNote = "Заметка с \"кавычками\""
 let escapedNote = "\"" + sampleNote.replacingOccurrences(of: "\"", with: "\"\"") + "\""
 assertTest(escapedNote == "\"Заметка с \"\"кавычками\"\"\"", "Экранирование кавычек по стандарту RFC 4180 для Excel/Numbers")
 
+// 6. Тестирование структуры отчетов AI-Коуча
+print("\n--- 6. Тестирование моделей AI-Коуча ---")
+struct TestAIReport: Codable {
+    let headline: String
+    let drivers: [String]
+    let drains: [String]
+    let experiment: String
+}
+let sampleReport = TestAIReport(
+    headline: "Устойчивый тонус",
+    drivers: ["Тренировка +25%"],
+    drains: ["Экранное время"],
+    experiment: "Цифровой закат за 30 мин до сна"
+)
+let encodedReport = try? JSONEncoder().encode(sampleReport)
+let decodedReport = encodedReport != nil ? try? JSONDecoder().decode(TestAIReport.self, from: encodedReport!) : nil
+assertTest(decodedReport?.headline == "Устойчивый тонус" && decodedReport?.drivers.count == 1, "Сериализация и парсинг структуры отчета AI-Коуча")
+
 sqlite3_close(db)
 
 print("\n==================================================")
